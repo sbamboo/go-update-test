@@ -1,9 +1,10 @@
 {
+    "_comment_": "Context is 'release' : An update to the app; 'patch' : A change to the app (most likely a larger fix); 'hotfix' : A more urgent fix; 'dev' : A developer caused update, possibly on-commit.",
     "stable": [
-        {"uind":1, "semver":"0.0.1", "date": "2025-08-04T00:00:00Z"},
-        {"uind":0, "semver":"0.0.0", "date": "2025-08-03T00:00:00Z"}
+        {"uind":1, "semver":"0.0.1", "date": "2025-08-04T00:00:00Z", "notes":"...", "checksum":"...", "checksum_type":"...", "context": "patch", "url": "...", "size":0},
+        {"uind":0, "semver":"0.0.0", "date": "2025-08-03T00:00:00Z", "notes":"...", "checksum":"...", "checksum_type":"...", "context": "release", "url": "...", "size":0}
     ],
     "dev": [
-        {"uind":0, "semver":"0.0.1d", "date": "2025-08-05T00:00:00Z"}
+        {"uind":0, "semver":"0.0.1d", "date": "2025-08-05T00:00:00Z", "notes":"...", "checksum":"...", "checksum_type":"...", "context": "dev", "url": "...", "size":0}
     ]
 }
