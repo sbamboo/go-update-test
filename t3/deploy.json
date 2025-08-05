@@ -1,0 +1,24 @@
+{
+    "format": 1,
+    "channels": {
+    "release": [],
+        "dev": [
+            {
+                "notes": "The first commit",
+                "released": "2025-08-05T22:19:43Z",
+                "signature": "304402207ec243d97580bf77377aa3581820fd31f2f76954654a5cfa701140ec9b85357e02207e8bda4be0e2af70a451561a14909eac83e5154c8985396c0a3f767aaf96ddc1",
+                "patch_for": null,
+                "sources": {
+                    "windows-amd64": {
+                        "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/updatetest_v0.0.0_dev_windows-amd64.exe",
+                        "patch_url": null
+                    }
+                },
+                "is_patch": false,
+                "checksum": "67bf47bc333a4cac658dd8f4d7ca274f7be27960f06c88ea81a7f49bb2af0408",
+                "semver": "0.0.0",
+                "uind": 1
+            }
+        ]
+    }
+}
