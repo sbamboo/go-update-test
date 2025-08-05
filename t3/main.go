@@ -25,7 +25,7 @@ var (
 	AppChannel    = "default"
 	AppBuildTime  = "unknown"
 	AppCommitHash = "unknown"
-	AppPublicKey  = "INVALID_EMPTY" // Placeholder, must replace using -ldflags or with a valid key
+	AppPublicKey  string
 )
 
 // SourceInfo holds URLs for a specific OS/Architecture
@@ -165,15 +165,13 @@ func getLatestVersion(channel string) (*ReleaseInfo, error) {
 	return latest, nil
 }
 
-func getPublicKey() string {
-	return strings.ReplaceAll(AppPublicKey, `\n`, "\n")
-}
-
 func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 	opts := update.Options{}
 
+	cleanPublicKey := strings.ReplaceAll(AppPublicKey, `\n`, "\n")
+
 	// Set public key for signature verification
-	err := opts.SetPublicKeyPEM([]byte(getPublicKey()))
+	err := opts.SetPublicKeyPEM([]byte(cleanPublicKey))
 	if err != nil {
 		return fmt.Errorf("failed to set public key: %w", err)
 	}

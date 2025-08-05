@@ -12,6 +12,7 @@ param (
     [string]$out,
     [switch]$noCrossCompile,
     [string]$addDeploy,
+    [switch]$debugLdflags,
     [switch]$help
 )
 
@@ -38,6 +39,7 @@ Options:
   -out "<filepath>"           Output JSON to file
   -noCrossCompile             Tells golang not to use cross-compilation by not adding GOOS and GOARCH env vars
   -addDeploy "<filepath>"     Add this entry to the following deploy.json under its channel
+  -debugLdflags               Prints debug ldflags for the Go build
   -help                       Show this help message
 
 Notes:
@@ -401,12 +403,15 @@ if ($targetOS -eq "windows") { $binaryName += ".exe" }
 # Read and escape public key for ldflags
 $publicKeyContentRaw = Get-Content $publicKeyFile -Raw
 # Remove newlines and replace with \n (escaped newlines) for embedding in string literal
-$publicKeyContentEscaped = $publicKeyContentRaw -replace "`r?`n", '\n'
-# Optional: escape double quotes if present (shouldn't be in PEM, but just in case)
-$publicKeyContentEscaped = $publicKeyContentEscaped -replace '"', '\"'
+$publicKeyContentEscaped = $publicKeyContentRaw.Replace("`r`n", "\n").Replace("`n", "\n")
+$publicKeyContentEscaped = $publicKeyContentEscaped.Replace('"', '\"')
 
 $outputBinaryPath = Join-Path $outputPath $binaryName
 $ldFlags = "-X 'main.AppVersion=$semver' -X 'main.AppUIND=$uind' -X 'main.AppChannel=$channel' -X 'main.AppBuildTime=$buildTime' -X 'main.AppCommitHash=$commitHash' -X 'main.AppPublicKey=$publicKeyContentEscaped'"
+
+if ($debugLdflags) {
+    Write-Host "Debug ldflags:`n$ldFlags" -ForegroundColor Cyan
+}
 
 Write-Host "Building Go application..." -ForegroundColor Green
 try {
