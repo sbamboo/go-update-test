@@ -14,16 +14,9 @@ if (Test-Path -Path "./public.key") {
 # Delete ./builds folder
 Remove-Item -Path "./builds" -Recurse -Force
 
-# Replace ./deploy.json content with
-#```
-# {
-#     "format": 1,
-#     "channels": {
-#         "release": [],
-#         "dev": []
-#     }
-# }
-#```
+# Delete ./deploy.json if exists
+
+# Set ./deploy.json content
 $deployJsonContent = @"
 {
     "format": 1,
