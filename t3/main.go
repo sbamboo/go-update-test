@@ -168,25 +168,29 @@ func getLatestVersion(channel string) (*ReleaseInfo, error) {
 func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 	opts := update.Options{}
 
-	cleanPublicKey := strings.ReplaceAll(AppPublicKey, `\n`, "\n")
+	/*
+		cleanPublicKey := strings.ReplaceAll(AppPublicKey, `\n`, "\n")
 
-	// Set public key for signature verification
-	err := opts.SetPublicKeyPEM([]byte(cleanPublicKey))
-	if err != nil {
-		return fmt.Errorf("failed to set public key: %w", err)
-	}
+		// Set public key for signature verification
+		err := opts.SetPublicKeyPEM([]byte(cleanPublicKey))
+		if err != nil {
+			return fmt.Errorf("failed to set public key: %w", err)
+		}
+	*/
 
 	// Set checksum and signature
 	checksum, err := hex.DecodeString(latestRelease.Checksum)
 	if err != nil {
 		return fmt.Errorf("failed to decode checksum: %w", err)
 	}
-	signature, err := hex.DecodeString(latestRelease.Signature)
-	if err != nil {
-		return fmt.Errorf("failed to decode signature: %w", err)
-	}
+	/*
+		signature, err := hex.DecodeString(latestRelease.Signature)
+		if err != nil {
+			return fmt.Errorf("failed to decode signature: %w", err)
+		}
+	*/
 	opts.Checksum = checksum
-	opts.Signature = signature
+	//opts.Signature = signature
 	opts.Hash = crypto.SHA256 // Default, but good to explicitly set
 
 	// Get platform-specific source URLs
