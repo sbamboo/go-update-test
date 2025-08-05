@@ -4,8 +4,8 @@
         "release": [
             {
                 "notes": "The first commit",
-                "released": "2025-08-05T22:23:01Z",
-                "signature": "304502203d081601eb1f29a56a4de8bac6d0e2be6aa4c3c3e21ccf9587b3f203558a7ae6022100b9458895ff327bdc0b0eba2a2d004cb5915321da92fadd42e75deba61f7feabc",
+                "released": "2025-08-05T22:58:38Z",
+                "signature": "304402200ab20b69f162caa4e8c81d45074514d132de7d48f6bb89165123b48accc65f56022059b79c64c4d69d6cb2bcf29457d049e0c37aae8299657255161f9156eb64cf1c",
                 "patch_for": null,
                 "sources": {
                     "windows-amd64": {
@@ -14,14 +14,14 @@
                     }
                 },
                 "is_patch": false,
-                "checksum": "7e583271eb6563c718b61eae8b45076e73edb03561ae46a38bec7ff1d1fd568f",
+                "checksum": "1782cc96964b3f9ba63ef7df84ee23b5a6fc2b6705dc22e265e11406f2231f44",
                 "semver": "0.0.0",
                 "uind": 2
             },
             {
                 "notes": "The second commit",
-                "released": "2025-08-05T22:23:33Z",
-                "signature": "3046022100f1cbde2e6ec93331b5a05284f3480d5a1a89687ab39dbbb5b295e46cf9e4b1fc022100fa5f7265d23074a79a0e518084c5811a0dafc4ff6a44d45919865083c629ec88",
+                "released": "2025-08-05T22:58:43Z",
+                "signature": "30460221009f503ffb216f2817e6a412a5a2f616cac3064aed3d36ad60921a4d93aca6b805022100d5b9bdc4e2a21ee323bfb7baa0a87909758826661c2f751492872e122b03e577",
                 "patch_for": null,
                 "sources": {
                     "windows-amd64": {
@@ -30,7 +30,7 @@
                     }
                 },
                 "is_patch": false,
-                "checksum": "9370a1b5a908e1c5ff3362bf5d83c744dd7a5c31efcf8b67e93348064c630222",
+                "checksum": "6503cac0242809a6284e5d2aa4d3d3d292574e17c0e88f748ba403b0e6ec28b3",
                 "semver": "0.0.1",
                 "uind": 4
             }
@@ -38,8 +38,8 @@
         "dev": [
             {
                 "notes": "The first commit (dev)",
-                "released": "2025-08-05T22:22:47Z",
-                "signature": "304402205e8c242817710885559d700c7e01685c3a209a8a204ebe1bfe678e46b345ed6d02204152dc1837492400725525f9547cf7069249cd55dc489c5c65235197881f2a92",
+                "released": "2025-08-05T22:58:35Z",
+                "signature": "304502207e84717e050e8c2fe4290e57ad64fe3335345a1a199e80c5f5442844fc9a91ab022100a222c57acdb80f8fd599364602eb895a1e937a6c09b04f70d917f7d3dd4380f2",
                 "patch_for": null,
                 "sources": {
                     "windows-amd64": {
@@ -48,14 +48,14 @@
                     }
                 },
                 "is_patch": false,
-                "checksum": "e808e0d3c811be8e12d79cf281aa5585e441c4ea3b436a9473595865ac31c579",
+                "checksum": "3c5adff87289d291628a03569ae59dee15fb1634e5d409961834080d6a4f1a06",
                 "semver": "0.0.0",
                 "uind": 1
             },
             {
                 "notes": "The second commit (dev)",
-                "released": "2025-08-05T22:23:19Z",
-                "signature": "3045022008365a441da8550546963bd22f4ddfd68df4479c8729a079ae840d08d91e5a5b022100a4028aea2483c229e535bbd4c7af9cfbff58dfbbc3993b41f538717fa37809ca",
+                "released": "2025-08-05T22:58:41Z",
+                "signature": "3045022100fe6e244280121d061c5009d3119405c0df51e3e220e3dd4d3a5ec29ad48e716a02202a2db4966e9c445a1036d4e8a7402d7abd692dbdf6fa4783eb5e34bc1f8ac70d",
                 "patch_for": null,
                 "sources": {
                     "windows-amd64": {
@@ -64,7 +64,7 @@
                     }
                 },
                 "is_patch": false,
-                "checksum": "0d946a3edd05653dee2dc95a353525e7163a1749d0bf4d2e12c9e914a3752217",
+                "checksum": "6cbc0fd12224fcbabdd184a70e07685a77adc3f54234b7ca313f8b2d503cc829",
                 "semver": "0.0.1",
                 "uind": 3
             }

@@ -16,17 +16,10 @@ param (
 )
 
 # --- Configuration ---
+$publicKeyFile = "public.key"
 $privateKeyFile = "private.key"
 $outputPath = "./builds"
 $appName = "updatetest" # Name of your Go executable
-
-# --- Public Key (MUST MATCH THE ONE IN main.go) ---
-$publicKeyPEM = @"
------BEGIN PUBLIC KEY-----
-MFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEtrVmBxQvheRArXjg2vG1xIprWGuCyESx
-MMY8pjmjepSy2kuz+nl9aFLqmr+rDNdYvEBqQaZrYMc6k29gjvoQnQ==
------END PUBLIC KEY-----
-"@
 
 # --- Help Text ---
 if ($help) {
@@ -62,15 +55,13 @@ Examples:
 
 # --- Helper Functions ---
 
-function Generate-KeyPair {
+function Generate-PrivateKey {
     param (
         [string]$privateKeyPath
     )
     if (-not (Test-Path $privateKeyPath)) {
         Write-Host "Generating new ECDSA private key..." -ForegroundColor Yellow
         try {
-            # Use openssl to generate an ECDSA private key and extract the public key
-            # Requires OpenSSL to be installed and in your PATH
             & openssl ecparam -name prime256v1 -genkey -noout -out $privateKeyPath
             Write-Host "Private key saved to: $privateKeyPath" -ForegroundColor Green
         }
@@ -80,6 +71,26 @@ function Generate-KeyPair {
         }
     } else {
         Write-Host "Private key already exists: $privateKeyPath" -ForegroundColor Cyan
+    }
+}
+
+function Generate-PublicKey {
+    param (
+        [string]$privateKeyPath,
+        [string]$publicKeyPath
+    )
+    if (-not (Test-Path $publicKeyPath)) {
+        Write-Host "Generating public key from private key..." -ForegroundColor Yellow
+        try {
+            & openssl ec -in $privateKeyPath -pubout -out $publicKeyPath
+            Write-Host "Public key saved to: $publicKeyPath" -ForegroundColor Green
+        }
+        catch {
+            Write-Error "Failed to generate public key. Make sure OpenSSL is installed and in your PATH."
+            exit 1
+        }
+    } else {
+        Write-Host "Public key already exists: $publicKeyPath" -ForegroundColor Cyan
     }
 }
 
@@ -249,7 +260,8 @@ function Format-Json
 # --- Main Script ---
 
 # 1. Generate Key Pair if it doesn't exist
-Generate-KeyPair $privateKeyFile
+Generate-PrivateKey $privateKeyFile
+Generate-PublicKey $privateKeyFile $publicKeyFile
 
 # 2. Get User Input
 # semver
@@ -386,8 +398,15 @@ $binaryName += "_$platformKey"
 
 if ($targetOS -eq "windows") { $binaryName += ".exe" }
 
+# Read and escape public key for ldflags
+$publicKeyContentRaw = Get-Content $publicKeyFile -Raw
+# Remove newlines and replace with \n (escaped newlines) for embedding in string literal
+$publicKeyContentEscaped = $publicKeyContentRaw -replace "`r?`n", '\n'
+# Optional: escape double quotes if present (shouldn't be in PEM, but just in case)
+$publicKeyContentEscaped = $publicKeyContentEscaped -replace '"', '\"'
+
 $outputBinaryPath = Join-Path $outputPath $binaryName
-$ldFlags = "-X 'main.AppVersion=$semver' -X 'main.AppUIND=$uind' -X 'main.AppChannel=$channel' -X 'main.AppBuildTime=$buildTime' -X 'main.AppCommitHash=$commitHash'"
+$ldFlags = "-X 'main.AppVersion=$semver' -X 'main.AppUIND=$uind' -X 'main.AppChannel=$channel' -X 'main.AppBuildTime=$buildTime' -X 'main.AppCommitHash=$commitHash' -X 'main.AppPublicKey=$publicKeyContentEscaped'"
 
 Write-Host "Building Go application..." -ForegroundColor Green
 try {
