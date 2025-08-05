@@ -9,7 +9,7 @@
                 "patch_for": null,
                 "sources": {
                     "windows-amd64": {
-                        "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/updatetest_v0.0.0_release_windows-amd64.exe",
+                        "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/t3/builds/updatetest_v0.0.0_release_windows-amd64.exe",
                         "patch_url": null
                     }
                 },
@@ -25,7 +25,7 @@
                 "patch_for": null,
                 "sources": {
                     "windows-amd64": {
-                        "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/updatetest_v0.0.1_release_windows-amd64.exe",
+                        "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/t3/builds/updatetest_v0.0.1_release_windows-amd64.exe",
                         "patch_url": null
                     }
                 },
@@ -43,7 +43,7 @@
                 "patch_for": null,
                 "sources": {
                     "windows-amd64": {
-                        "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/updatetest_v0.0.0_dev_windows-amd64.exe",
+                        "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/t3/builds/updatetest_v0.0.0_dev_windows-amd64.exe",
                         "patch_url": null
                     }
                 },
@@ -59,7 +59,7 @@
                 "patch_for": null,
                 "sources": {
                     "windows-amd64": {
-                        "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/updatetest_v0.0.1_dev_windows-amd64.exe",
+                        "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/t3/builds/updatetest_v0.0.1_dev_windows-amd64.exe",
                         "patch_url": null
                     }
                 },

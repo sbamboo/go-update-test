@@ -447,7 +447,7 @@ Write-Host "Signature: $signature" -ForegroundColor Green
 
 # 7. Handle Patch Creation (if applicable)
 $patchURL = $null
-$fullBinaryURL = "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/$binaryName"
+$fullBinaryURL = "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/t3/builds/$binaryName"
 
 if ($isPatch) {
     $previousBinaryPath = Read-Host "Enter path to the previous version's binary for patch generation (e.g., ./builds/your_app_v1.0.0.exe)"
@@ -479,7 +479,7 @@ if ($isPatch) {
     }
     Remove-Item $tempNewBinary # Clean up temp new binary
 
-    $patchURL = "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/$patchFileName"
+    $patchURL = "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/t3/builds/$patchFileName"
 }
 
 # 8. Release notes
