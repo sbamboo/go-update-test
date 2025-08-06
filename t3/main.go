@@ -197,26 +197,35 @@ func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 	// Determine if we should attempt a patch update
 	shouldAttemptPatch := latestPlatformRelease.IsPatch &&
 		latestPlatformRelease.PatchURL != nil && *latestPlatformRelease.PatchURL != "" &&
-		latestPlatformRelease.PatchFor != nil && *latestPlatformRelease.PatchFor == currentUIND &&
+		latestPlatformRelease.PatchFor != nil &&
 		latestPlatformRelease.PatchChecksum != nil && *latestPlatformRelease.PatchChecksum != "" &&
 		latestPlatformRelease.PatchSignature != nil && *latestPlatformRelease.PatchSignature != ""
 
 	if shouldAttemptPatch {
-		fmt.Printf("Attempting to download and apply patch from: %s\n", *latestPlatformRelease.PatchURL)
-		downloadURL = *latestPlatformRelease.PatchURL
-		opts.Patcher = update.NewBSDiffPatcher()
+		// Is the patch for us?
+		if *latestPlatformRelease.PatchFor == currentUIND {
+			fmt.Printf("Attempting to download and apply patch from: %s\n", *latestPlatformRelease.PatchURL)
+			downloadURL = *latestPlatformRelease.PatchURL
+			opts.Patcher = update.NewBSDiffPatcher()
 
-		// Set checksum and signature for the patch file
-		expectedChecksum, err = hex.DecodeString(*latestPlatformRelease.PatchChecksum)
-		if err != nil {
-			return fmt.Errorf("failed to decode patch checksum: %w", err)
-		}
-		expectedSignature, err = base64.StdEncoding.DecodeString(*latestPlatformRelease.PatchSignature)
-		if err != nil {
-			return fmt.Errorf("failed to decode patch signature: %w", err)
+			// Set checksum and signature for the patch file
+			expectedChecksum, err = hex.DecodeString(*latestPlatformRelease.PatchChecksum)
+			if err != nil {
+				return fmt.Errorf("failed to decode patch checksum: %w", err)
+			}
+			expectedSignature, err = base64.StdEncoding.DecodeString(*latestPlatformRelease.PatchSignature)
+			if err != nil {
+				return fmt.Errorf("failed to decode patch signature: %w", err)
+			}
+		} else {
+			// Warn the user that the patch is not the current UIND and fallback to a full update
+			fmt.Printf("Warning: Patch is for UIND %d, but current UIND is %d. Falling back to full update.\n", *latestPlatformRelease.PatchFor, currentUIND)
+			shouldAttemptPatch = false
 		}
 
-	} else {
+	}
+
+	if !shouldAttemptPatch {
 		if latestPlatformRelease.IsPatch {
 			if latestPlatformRelease.PatchURL == nil || *latestPlatformRelease.PatchURL == "" {
 				fmt.Println("Warning: Release is marked as patch but no patch_url for current platform. Falling back to full update.")
