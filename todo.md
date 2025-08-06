@@ -1,0 +1,3 @@
+- Allow to force onto latest of channel or make UIND per channel
+- Github action build with binarypatches?
+- Another github action that somehow takes metadata dynamically so we can trigger a build locally with build-ci.ps1/.bat
