@@ -21,8 +21,8 @@ param (
 )
 
 # --- Configuration ---
-$publicKeyFile = "public.pem"
-$privateKeyFile = "private.pem"
+$publicKeyFile = "./signing/public.pem"
+$privateKeyFile = "./signing/private.pem"
 $outputPath = "./builds"
 $appName = "updatetest" # Name of your Go executable
 

@@ -11,6 +11,15 @@ if (Test-Path -Path "./public.pem") {
     Remove-Item -Path "./public.pem" -Force
 }
 
+# Delete ./signing/private.pem if exists
+if (Test-Path -Path "./signing/private.pem") {
+    Remove-Item -Path "./signing/private.pem" -Force
+}
+# Delete ./signing/public.pem if exists
+if (Test-Path -Path "./signing/public.pem") {
+    Remove-Item -Path "./signing/public.pem" -Force
+}
+
 # Delete ./builds folder
 Remove-Item -Path "./builds" -Recurse -Force
 

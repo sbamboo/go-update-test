@@ -34,7 +34,7 @@ var (
 	AppGhUpMetaRepo = "" // If not provided this will be cast to *string nil later
 )
 
-//go:embed public.pem
+//go:embed signing/public.pem
 var appPublicKey []byte
 
 // --- GitHub UpMeta Fetcher Structures and Methods ---
