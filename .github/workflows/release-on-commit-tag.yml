@@ -3,7 +3,7 @@ name: Release on commit tag
 on:
   push:
     tags:
-      - 'commit=v*.*.*'
+      - 'commit_*.*.*'
 
 jobs:
   build_and_release:
@@ -20,9 +20,8 @@ jobs:
     - name: Parse SEMVER from tag
       id: parse-semver
       run: |
-        tag="${GITHUB_REF##refs/tags/}"   # e.g. commit=v1.2.3
-        semver="${tag#commit=}"            # strip 'commit='
-        semver="${semver#v}"               # strip leading 'v'
+        tag="${GITHUB_REF##refs/tags/}"    # e.g. commit_1.2.3
+        semver="${tag#commit_}"            # strip 'commit_'
         echo "SEMVER=$semver" >> $GITHUB_OUTPUT
 
     - name: Set CHANNEL
