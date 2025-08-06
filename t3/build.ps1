@@ -5,6 +5,8 @@ param (
     [string]$uind,
     [string]$channel,
     [switch]$binaryPatch,
+    [string]$patchForUind,
+    [string]$patchComparePath,
     [string]$os,
     [string]$arch,
     [string]$notes,
@@ -154,16 +156,18 @@ function Sign-Binary {
 }
 
 
-function Compress-File {
+function Generate-BSDiffPatch {
     param (
-        [string]$sourceFile,
-        [string]$destinationFile
+        [string]$oldFile,
+        [string]$newFile,
+        [string]$patchFile
     )
-    Write-Host "Creating bsdiff patch for $sourceFile to $destinationFile..." -ForegroundColor Cyan
+    Write-Host "Creating bsdiff patch from '$oldFile' to '$newFile' as '$patchFile'..." -ForegroundColor Cyan
     try {
         # This requires `bsdiff` and `bspatch` executables to be in your PATH
         # You can get them from: http://www.daemonology.net/bsdiff/
-        & bsdiff $sourceFile $destinationFile -ErrorAction Stop
+        & bsdiff "$oldFile" "$newFile" "$patchFile" -ErrorAction Stop
+        Write-Host "BSDiff patch created successfully: $patchFile" -ForegroundColor Green
     }
     catch {
         Write-Error "Failed to create bsdiff patch. Make sure bsdiff is installed and in your PATH. Error: $($_.Exception.Message)"
@@ -302,8 +306,7 @@ if (-not $channel) {
 }
 
 # binary patch & target
-$isPatch = $false
-$patchForUIND = $null
+$generatePatch = $false
 if ($auto) {
     # If auto, use default values for targetOS, targetArch and isPatch = no
     if ($PSVersionTable.PSVersion.Major -ge 6) {
@@ -313,16 +316,43 @@ if ($auto) {
         $targetOS = "windows"
         $targetArch = "amd64"
     }
-    $isPatch = $false
+    $generatePatch = $false
+    $patchForUind = $null
+    $patchComparePath = $null
 }
 else {
     if ($binaryPatch.IsPresent) {
-        $isPatch = $true
+        $generatePatch = $true
     }
     else {
         # Prompt for binary patch if no flag given
         $resp = Read-Host "Is this a binary patch? (y/n)"
-        $isPatch = $resp -eq 'y'
+        $generatePatch = $resp -eq 'y'
+    }
+    if ($patchForUind) {
+        $patchForUind = Validate-UIND $patchForUind
+    } else {
+        $patchForUindString = Read-Host "Enter the UIND of the version this patch is FOR (the old version's UIND)"
+        $patchForUind = Validate-UIND $patchForUindString
+    }
+    # if $patchForUind is $null it was invalid while-prompt until valid
+    if (-not $patchForUind) {
+        while ($true) {
+            $inputPatchFor = Read-Host "Enter the UIND of the version this patch is FOR (the old version's UIND)"
+            $patchForUind = Validate-UIND $inputPatchFor
+            if ($patchForUind -ne $null) {
+                break
+            }
+        }
+    }
+
+    if (-not $patchComparePath) {
+        $patchComparePath = Read-Host "Enter path to the previous version's binary for patch generation (e.g., ./builds/your_app_v1.0.0.exe)"
+    }
+    # If the $patchComparePath does not exist while-prompt it until it does
+    while (-not (Test-Path $patchComparePath)) {
+        Write-Host "Previous binary not found at: $patchComparePath. Please enter a valid path." -ForegroundColor Red
+        $patchComparePath = Read-Host "Enter path to the previous version's binary for patch generation (e.g., ./builds/your_app_v1.0.0.exe)"
     }
 
     # Prompt targetOS and targetArch if not provided
@@ -359,18 +389,6 @@ else {
 
 $goOsEnv = "GOOS=$targetOS"
 $goArchEnv = "GOARCH=$targetArch"
-
-if ($isPatch) {
-    while (-not $patchForUIND) {
-        $inputPatchFor = Read-Host "Enter the UIND of the version this patch is for"
-        if ([int]::TryParse($inputPatchFor, [ref]$null)) {
-            $patchForUIND = [int]$inputPatchFor
-        }
-        else {
-            Write-Host "Patch for UIND must be an integer." -ForegroundColor Red
-        }
-    }
-}
 
 # build time and commit hash
 $buildTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -442,19 +460,40 @@ $signature = Sign-Binary $outputBinaryPath $privateKeyFile
 Write-Host "Signature: $signature" -ForegroundColor Green
 
 # 7. Handle Patch Creation (if applicable)
-$patchURL = $null
-$fullBinaryURL = "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/t3/builds/$binaryName"
+$patchPublishURL = $null
+$patchChecksum = $null
+$patchSignature = $null
+$patchFileName = $null
+$patchFilePath = $null
 
-if ($isPatch) {
-    $previousBinaryPath = Read-Host "Enter path to the previous version's binary for patch generation (e.g., ./builds/your_app_v1.0.0.exe)"
-    if (-not (Test-Path $previousBinaryPath)) {
-        Write-Error "Previous binary not found at: $previousBinaryPath. Cannot create patch."
-        exit 1
+if ($generatePatch) {
+    # Make patch file path
+    # <filename>_<uind>t<patchForUind>.patch
+    $patchFile = $binaryName.Replace(".exe", "")
+    if ($patchForUind) {
+        $patchFileName += "_$uind"+"t$patchForUind.patch"
+    } else {
+        $patchFileName += "_$uind"+"t.patch"
     }
-    $patchFileName = "$binaryName.patch"
     $patchFilePath = Join-Path $outputPath $patchFileName
-    Compress-File $previousBinaryPath $outputBinaryPath # bsdiff expects old_file new_file patch_file
-    Move-Item -Path $outputBinaryPath -Destination $patchFilePath # The output of bsdiff is usually the new file, need to rename it for the patch.
+
+    # Generate the patch file
+    Generate-BSDiffPatch "$patchComparePath" "$outputBinaryPath" "$patchFilePath"
+
+    # Calculate Checksum for Patch
+    $patchChecksum = Get-BinaryChecksum $patchFilePath
+    Write-Host "Patch File Checksum (SHA256): $patchChecksum" -ForegroundColor Green
+
+    # Sign the Patch File
+    $patchSignature = Sign-Binary $patchFilePath $privateKeyFile
+    Write-Host "Patch File Signature: $patchSignature" -ForegroundColor Green
+
+    $patchPublishURL = "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/t3/builds/$patchFileName"
+
+    #$patchFileName = "$binaryName.patch"
+    #$patchFilePath = Join-Path $outputPath $patchFileName
+    #Compress-File $previousBinaryPath $outputBinaryPath # bsdiff expects old_file new_file patch_file
+    #Move-Item -Path $outputBinaryPath -Destination $patchFilePath # The output of bsdiff is usually the new file, need to rename it for the patch.
     # If bsdiff expects `bsdiff old_file new_file patch_output_file`, adjust this.
     # For now, assuming it generates directly into new_file after compression like `gzip`
     # Let's adjust this to correctly generate a separate patch file.
@@ -462,21 +501,23 @@ if ($isPatch) {
     # We need to make a copy of $outputBinaryPath before running bsdiff, if the new binary is not the same as the patch output.
 
     # Correct way to generate a patch file:
-    $tempNewBinary = Join-Path $outputPath "temp_$binaryName"
-    Copy-Item $outputBinaryPath $tempNewBinary
-    $patchFileActual = Join-Path $outputPath "$($binaryName).patch"
-    Write-Host "Generating patch file: $patchFileActual from $previousBinaryPath to $tempNewBinary..." -ForegroundColor Cyan
-    try {
-        & bsdiff "$previousBinaryPath" "$tempNewBinary" "$patchFileActual" -ErrorAction Stop
-    }
-    catch {
-        Write-Error "Failed to generate bsdiff patch. Error: $($_.Exception.Message)"
-        exit 1
-    }
-    Remove-Item $tempNewBinary # Clean up temp new binary
+    #$tempNewBinary = Join-Path $outputPath "temp_$binaryName"
+    #Copy-Item $outputBinaryPath $tempNewBinary
+    #$patchFileActual = Join-Path $outputPath "$($binaryName).patch"
+    #Write-Host "Generating patch file: $patchFileActual from $previousBinaryPath to $tempNewBinary..." -ForegroundColor Cyan
+    #try {
+    #    & bsdiff "$previousBinaryPath" "$tempNewBinary" "$patchFileActual" -ErrorAction Stop
+    #}
+    #catch {
+    #    Write-Error "Failed to generate bsdiff patch. Error: $($_.Exception.Message)"
+    #    exit 1
+    #}
+    #Remove-Item $tempNewBinary # Clean up temp new binary
 
-    $patchURL = "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/t3/builds/$patchFileName"
+    #$patchURL = "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/t3/builds/$patchFileName"
 }
+
+$binaryPublishURL = "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/t3/builds/$binaryName"
 
 # 8. Release notes
 if (-not $notes) {
@@ -485,16 +526,20 @@ if (-not $notes) {
 
 # 9. Print JSON for deploy.json
 $sourceInfo = @{
-    is_patch = $isPatch
-    url       = $fullBinaryURL
-    patch_url = $patchURL
-    patch_for = $null
-    checksum  = $checksum
-    signature = $signature
+    is_patch        = $generatePatch
+    url             = $binaryPublishURL
+    checksum        = $checksum
+    signature       = $signature
+    patch_url       = $patchPublishURL # Will be null if not generating patch
+    patch_checksum  = $patchChecksum # Will be null if not generating patch
+    patch_signature = $patchSignature # Will be null if not generating patch
 }
 
-if ($patchForUIND -ne $null) {
-    $sourceInfo.patch_for = [int]$patchForUIND
+# if $patchForUind is null or empty string set it to $null else set it to int-convert
+if (-not $patchForUind -or $patchForUind -eq "") {
+    $sourceInfo.patch_for = $null
+} else {
+    $sourceInfo.patch_for = [int]$patchForUind
 }
 
 $sourcesMap = @{}

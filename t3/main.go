@@ -34,12 +34,14 @@ var appPublicKey []byte
 
 // SourceInfo holds URLs for a specific OS/Architecture
 type SourceInfo struct {
-	IsPatch   bool    `json:"is_patch"`
-	URL       string  `json:"url"`
-	PatchURL  *string `json:"patch_url"` // Pointer to string to allow null
-	PatchFor  *int    `json:"patch_for"` // Pointer to int to allow null
-	Checksum  string  `json:"checksum"`
-	Signature string  `json:"signature"`
+	IsPatch        bool    `json:"is_patch"`
+	URL            string  `json:"url"`
+	PatchURL       *string `json:"patch_url"`       // Pointer to string to allow null
+	PatchFor       *int    `json:"patch_for"`       // Pointer to int to allow null
+	Checksum       string  `json:"checksum"`        // Checksum of the full binary
+	Signature      string  `json:"signature"`       // Signature of the full binary
+	PatchChecksum  *string `json:"patch_checksum"`  // Checksum of the patch file, pointer to allow null
+	PatchSignature *string `json:"patch_signature"` // Signature of the patch file, pointer to allow null
 }
 
 type ReleaseInfo struct {
@@ -185,86 +187,84 @@ func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 		return fmt.Errorf("no update source found for current platform: %s", platformKey)
 	}
 
-	// Checksum
-	checksum, err := hex.DecodeString(latestPlatformRelease.Checksum)
-	if err != nil {
-		return fmt.Errorf("failed to decode checksum: %w", err)
-	}
-
-	// Decode base64 signature
-	signature, err := base64.StdEncoding.DecodeString(latestPlatformRelease.Signature)
-	if err != nil {
-		return fmt.Errorf("failed to decode signature: %w", err)
-	}
-
-	opts.Checksum = checksum
-	opts.Signature = signature
 	opts.Hash = crypto.SHA256                 // Default, but good to explicitly set
 	opts.Verifier = update.NewECDSAVerifier() // Default, but good to explicitly set
 
-	var updateReader io.Reader
+	var downloadURL string
+	var expectedChecksum []byte
+	var expectedSignature []byte
 
-	// Handle binary patching
-	if latestPlatformRelease.IsPatch {
-		if latestPlatformRelease.PatchURL == nil || *latestPlatformRelease.PatchURL == "" {
-			fmt.Println("Warning: Release is marked as patch but no patch_url for current platform. Falling back to full update.")
-			latestPlatformRelease.IsPatch = false // Force full update
-		} else {
-			//patchPath := []ReleaseInfo{*latestRelease} // Simplified: we only care about the latest patch
+	// Determine if we should attempt a patch update
+	shouldAttemptPatch := latestPlatformRelease.IsPatch &&
+		latestPlatformRelease.PatchURL != nil && *latestPlatformRelease.PatchURL != "" &&
+		latestPlatformRelease.PatchFor != nil && *latestPlatformRelease.PatchFor == currentUIND &&
+		latestPlatformRelease.PatchChecksum != nil && *latestPlatformRelease.PatchChecksum != "" &&
+		latestPlatformRelease.PatchSignature != nil && *latestPlatformRelease.PatchSignature != ""
 
-			// Check if the patch can be directly applied
-			if latestPlatformRelease.PatchFor != nil && *latestPlatformRelease.PatchFor == currentUIND {
-				// Direct patch path: current -> latest
-			} else {
-				// Try to find a multi-step patch path
-				fmt.Println("Attempting to find a multi-step patch path...")
-				// This is a simplified example. A real implementation would need to
-				// fetch all releases in the channel to find intermediate patches.
-				// For this example, we'll only support direct patches or full updates.
-				fmt.Println("Multi-step patching not fully implemented in this example.")
-				fmt.Println("Falling back to full update.")
-				latestPlatformRelease.IsPatch = false // Force full update
-			}
-		}
-	}
-
-	if latestPlatformRelease.IsPatch && latestPlatformRelease.PatchURL != nil && *latestPlatformRelease.PatchURL != "" && *latestPlatformRelease.PatchFor == currentUIND {
-		fmt.Printf("Downloading patch from: %s\n", *latestPlatformRelease.PatchURL)
-		resp, err := http.Get(*latestPlatformRelease.PatchURL)
-		if err != nil {
-			return fmt.Errorf("failed to download patch: %w", err)
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("failed to download patch, status code: %d", resp.StatusCode)
-		}
-		updateReader = resp.Body
+	if shouldAttemptPatch {
+		fmt.Printf("Attempting to download and apply patch from: %s\n", *latestPlatformRelease.PatchURL)
+		downloadURL = *latestPlatformRelease.PatchURL
 		opts.Patcher = update.NewBSDiffPatcher()
+
+		// Set checksum and signature for the patch file
+		expectedChecksum, err = hex.DecodeString(*latestPlatformRelease.PatchChecksum)
+		if err != nil {
+			return fmt.Errorf("failed to decode patch checksum: %w", err)
+		}
+		expectedSignature, err = base64.StdEncoding.DecodeString(*latestPlatformRelease.PatchSignature)
+		if err != nil {
+			return fmt.Errorf("failed to decode patch signature: %w", err)
+		}
+
 	} else {
-		if latestPlatformRelease.PatchURL != nil && *latestPlatformRelease.PatchURL != "" && *latestPlatformRelease.PatchFor == currentUIND {
-			fmt.Printf("Warning: Patch URL was invalid or the updates patch was not applicable for current UIND %d. Falling back to full binary.\n", currentUIND)
+		if latestPlatformRelease.IsPatch {
+			if latestPlatformRelease.PatchURL == nil || *latestPlatformRelease.PatchURL == "" {
+				fmt.Println("Warning: Release is marked as patch but no patch_url for current platform. Falling back to full update.")
+			} else if latestPlatformRelease.PatchFor == nil || *latestPlatformRelease.PatchFor != currentUIND {
+				fmt.Printf("Warning: Patch is for UIND %d, but current UIND is %d. Falling back to full update.\n", *latestPlatformRelease.PatchFor, currentUIND)
+			} else { // Missing patch checksum or signature
+				fmt.Println("Warning: Patch is available but missing checksum/signature. Falling back to full update.")
+			}
 		}
 
 		fmt.Printf("Downloading full binary from: %s\n", latestPlatformRelease.URL)
-		resp, err := http.Get(latestPlatformRelease.URL)
+		downloadURL = latestPlatformRelease.URL
+		opts.Patcher = nil // No patcher needed for full binary update
+
+		// Set checksum and signature for the full binary
+		expectedChecksum, err = hex.DecodeString(latestPlatformRelease.Checksum)
 		if err != nil {
-			return fmt.Errorf("failed to download full binary: %w", err)
+			return fmt.Errorf("failed to decode full binary checksum: %w", err)
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("failed to download full binary, status code: %d", resp.StatusCode)
+		expectedSignature, err = base64.StdEncoding.DecodeString(latestPlatformRelease.Signature)
+		if err != nil {
+			return fmt.Errorf("failed to decode full binary signature: %w", err)
 		}
-		updateReader = resp.Body
+	}
+
+	// Assign the derived checksum and signature to opts
+	opts.Checksum = expectedChecksum
+	opts.Signature = expectedSignature
+
+	// Perform the HTTP GET request
+	resp, err := http.Get(downloadURL)
+	if err != nil {
+		return fmt.Errorf("failed to download update from %s: %w", downloadURL, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to download update from %s, status code: %d", downloadURL, resp.StatusCode)
 	}
 
 	// Create a buffer to store the update content for checksum verification
 	updateContent := new(bytes.Buffer)
-	teeReader := io.TeeReader(updateReader, updateContent)
+	teeReader := io.TeeReader(resp.Body, updateContent)
 
 	err = update.Apply(teeReader, opts)
 	if err != nil {
 		return fmt.Errorf("failed to apply update: %w", err)
 	}
 
+	fmt.Println("Update applied successfully!")
 	return nil
 }
