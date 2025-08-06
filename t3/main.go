@@ -30,12 +30,14 @@ var (
 )
 
 //go:embed public.pem
-var AppPublicKey []byte
+var appPublicKey []byte
 
 // SourceInfo holds URLs for a specific OS/Architecture
 type SourceInfo struct {
+	IsPatch  bool    `json:"is_patch"`
 	URL      string  `json:"url"`
 	PatchURL *string `json:"patch_url"` // Pointer to string to allow null
+	PatchFor *int    `json:"patch_for"` // Pointer to int to allow null
 }
 
 type ReleaseInfo struct {
@@ -43,9 +45,7 @@ type ReleaseInfo struct {
 	Semver    string                `json:"semver"`
 	Released  string                `json:"released"`
 	Notes     string                `json:"notes"`
-	IsPatch   bool                  `json:"is_patch"`
-	Sources   map[string]SourceInfo `json:"sources"`   // Map for platform-specific URLs
-	PatchFor  *int                  `json:"patch_for"` // Pointer to int to allow null
+	Sources   map[string]SourceInfo `json:"sources"` // Map for platform-specific URLs
 	Checksum  string                `json:"checksum"`
 	Signature string                `json:"signature"`
 }
@@ -173,7 +173,7 @@ func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 	opts := update.Options{}
 
 	// Set public key for signature verification
-	err := opts.SetPublicKeyPEM(AppPublicKey)
+	err := opts.SetPublicKeyPEM(appPublicKey)
 	if err != nil {
 		return fmt.Errorf("failed to set public key: %w", err)
 	}
@@ -197,7 +197,7 @@ func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 
 	// Get platform-specific source URLs
 	platformKey := fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH)
-	sourceInfo, ok := latestRelease.Sources[platformKey]
+	latestPlatformRelease, ok := latestRelease.Sources[platformKey]
 	if !ok {
 		return fmt.Errorf("no update source found for current platform: %s", platformKey)
 	}
@@ -205,15 +205,15 @@ func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 	var updateReader io.Reader
 
 	// Handle binary patching
-	if latestRelease.IsPatch {
-		if sourceInfo.PatchURL == nil || *sourceInfo.PatchURL == "" {
+	if latestPlatformRelease.IsPatch {
+		if latestPlatformRelease.PatchURL == nil || *latestPlatformRelease.PatchURL == "" {
 			fmt.Println("Warning: Release is marked as patch but no patch_url for current platform. Falling back to full update.")
-			latestRelease.IsPatch = false // Force full update
+			latestPlatformRelease.IsPatch = false // Force full update
 		} else {
 			//patchPath := []ReleaseInfo{*latestRelease} // Simplified: we only care about the latest patch
 
 			// Check if the patch can be directly applied
-			if latestRelease.PatchFor != nil && *latestRelease.PatchFor == currentUIND {
+			if latestPlatformRelease.PatchFor != nil && *latestPlatformRelease.PatchFor == currentUIND {
 				// Direct patch path: current -> latest
 			} else {
 				// Try to find a multi-step patch path
@@ -223,18 +223,14 @@ func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 				// For this example, we'll only support direct patches or full updates.
 				fmt.Println("Multi-step patching not fully implemented in this example.")
 				fmt.Println("Falling back to full update.")
-				latestRelease.IsPatch = false // Force full update
+				latestPlatformRelease.IsPatch = false // Force full update
 			}
 		}
 	}
 
-	if latestRelease.IsPatch {
-		if sourceInfo.PatchURL == nil || *sourceInfo.PatchURL == "" {
-			fmt.Printf("Downloading patch from: nil")
-		} else {
-			fmt.Printf("Downloading patch from: %s\n", *sourceInfo.PatchURL)
-		}
-		resp, err := http.Get(*sourceInfo.PatchURL)
+	if latestPlatformRelease.IsPatch && latestPlatformRelease.PatchURL != nil && *latestPlatformRelease.PatchURL != "" && *latestPlatformRelease.PatchFor == currentUIND {
+		fmt.Printf("Downloading patch from: %s\n", *latestPlatformRelease.PatchURL)
+		resp, err := http.Get(*latestPlatformRelease.PatchURL)
 		if err != nil {
 			return fmt.Errorf("failed to download patch: %w", err)
 		}
@@ -245,8 +241,12 @@ func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 		updateReader = resp.Body
 		opts.Patcher = update.NewBSDiffPatcher()
 	} else {
-		fmt.Printf("Downloading full binary from: %s\n", sourceInfo.URL)
-		resp, err := http.Get(sourceInfo.URL)
+		if latestPlatformRelease.PatchURL != nil && *latestPlatformRelease.PatchURL != "" && *latestPlatformRelease.PatchFor == currentUIND {
+			fmt.Printf("Warning: Patch URL was invalid or the updates patch was not applicable for current UIND %d. Falling back to full binary.\n", currentUIND)
+		}
+
+		fmt.Printf("Downloading full binary from: %s\n", latestPlatformRelease.URL)
+		resp, err := http.Get(latestPlatformRelease.URL)
 		if err != nil {
 			return fmt.Errorf("failed to download full binary: %w", err)
 		}
@@ -265,37 +265,6 @@ func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 	if err != nil {
 		return fmt.Errorf("failed to apply update: %w", err)
 	}
-
-	// AI Slop
-	/*
-		// After a successful apply, re-verify the checksum of the written file
-		// This is redundant if go-update's checksum verification passes, but good for understanding
-		// In a real scenario, go-update handles this internally if `opts.Checksum` is set.
-		fmt.Println("Update applied. Verifying checksum of the new binary...")
-		newBinaryPath, err := os.Executable()
-		if err != nil {
-			return fmt.Errorf("failed to get executable path for final verification: %w", err)
-		}
-
-		newBinaryFile, err := os.Open(newBinaryPath)
-		if err != nil {
-			return fmt.Errorf("failed to open new binary for verification: %w", err)
-		}
-		defer newBinaryFile.Close()
-
-		hasher := sha256.New()
-		if _, err := io.Copy(hasher, newBinaryFile); err != nil {
-			return fmt.Errorf("failed to hash new binary for verification: %w", err)
-		}
-		newBinaryChecksum := hasher.Sum(nil)
-		expectedChecksum, _ := hex.DecodeString(latestRelease.Checksum)
-
-		if !bytes.Equal(newBinaryChecksum, expectedChecksum) {
-			return fmt.Errorf("checksum mismatch after update! Expected %s, got %s. Update potentially corrupted.",
-				latestRelease.Checksum, hex.EncodeToString(newBinaryChecksum))
-		}
-		fmt.Println("Checksum verified successfully.")
-	*/
 
 	return nil
 }

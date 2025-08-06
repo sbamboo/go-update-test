@@ -485,8 +485,14 @@ if (-not $notes) {
 
 # 9. Print JSON for deploy.json
 $sourceInfo = @{
+    is_patch = $isPatch
     url       = $fullBinaryURL
     patch_url = $patchURL
+    patch_for = $null
+}
+
+if ($patchForUIND -ne $null) {
+    $sourceInfo.patch_for = [int]$patchForUIND
 }
 
 $sourcesMap = @{}
@@ -497,16 +503,9 @@ $releaseEntry = @{
     semver    = $semver
     released  = $buildTime
     notes     = $notes
-    is_patch  = ($isPatch -eq 'y')
     sources   = $sourcesMap
     checksum  = $checksum
     signature = $signature
-}
-
-if ($patchForUIND -ne $null) {
-    $releaseEntry.patch_for = [int]$patchForUIND
-} else {
-    $releaseEntry.patch_for = $null
 }
 
 $jsonEntry = ConvertTo-Json -InputObject $releaseEntry -Compress
