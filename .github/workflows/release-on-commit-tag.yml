@@ -151,7 +151,6 @@ jobs:
 
         release_notes+="\`\`\`\n</details>\n"
 
-        echo -e "$release_notes" > build/release_notes.md
         echo "::set-output name=notes::$release_notes"
 
     - name: Create GitHub Release with metadata and assets
