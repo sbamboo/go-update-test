@@ -155,16 +155,15 @@ jobs:
 
         release_notes+="\`\`\`\n</details>\n"
 
-        echo "notes<<EOF" >> $GITHUB_OUTPUT
-        printf '%s\n' "$release_notes" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+        echo -e "${release_notes//\\n/$'\n'}" > release_notes.md
 
     - name: Create GitHub Release with metadata and assets
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ github.ref_name }}
-        name: Release ${{ steps.parse-semver.outputs.SEMVER }}
-        body: ${{ steps.build-and-sign.outputs.notes }}
-        files: builds/*
+      run: |
+        gh release create "${GITHUB_REF##*/}" \
+          --title "Release ${{ steps.parse-semver.outputs.SEMVER }}" \
+          --notes-file release_notes.md \
+          --repo "${GITHUB_REPOSITORY}" \
+          --prerelease=true \
+          builds/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
