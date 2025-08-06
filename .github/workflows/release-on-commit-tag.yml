@@ -140,7 +140,7 @@ jobs:
           checksum=$(sha256sum builds/$filename | cut -d' ' -f1)
 
           echo "Signing checksum..."
-          signature=$(echo -n "$checksum" | openssl dgst -sha256 -sign signing/private.pem | base64)
+          signature=$(echo -n "$checksum" | openssl dgst -sha256 -sign signing/private.pem | base64 -w 0)
 
           release_notes+="    $goos-$goarch:\n"
           release_notes+="      filename: $filename\n"
