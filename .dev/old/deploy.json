@@ -1,0 +1,11 @@
+{
+    "_comment_": "Context is 'release' : An update to the app; 'patch' : A change to the app (most likely a larger fix); 'hotfix' : A more urgent fix; 'dev' : A developer caused update, possibly on-commit.",
+    "release": [
+        {"uind":1, "semver":"0.0.1", "date": "2025-08-05T00:00:00Z", "notes":"Second Release", "checksum":"02277100C7BDC16AA18889548B905B99E993482A", "checksum_type":"sha1", "context": "patch", "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/3109e5c0.exe", "size":48112294},
+        {"uind":0, "semver":"0.0.0", "date": "2025-08-05T00:00:00Z", "notes":"First Release", "checksum":"8676DA84B7A1C43EB27277044FAA7486BB8E1F9F", "checksum_type":"sha1", "context": "release", "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/f86c51c4.exe", "size":48112294}
+    ],
+    "dev": [
+        {"uind":1, "semver":"0.0.1", "date": "2025-08-05T00:00:00Z", "notes":"Second Release (4f3a426c)", "checksum":"9D62BDCC1971FC01D6EABF170916F67972B4963F", "checksum_type":"sha1", "context": "dev", "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/4f3a426c.exe", "size":48112294},
+        {"uind":0, "semver":"0.0.1", "date": "2025-08-05T00:00:00Z", "notes":"Second Release (ee41fee4)", "checksum":"193C17BB98423D138A67D70F0E02E1C111D16473", "checksum_type":"sha1", "context": "dev", "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/ee41fee4.exe", "size":48112294}
+    ]
+}
