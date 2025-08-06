@@ -57,8 +57,12 @@ jobs:
     - name: Set NOTES
       id: set-notes
       run: |
+        # Since this note can be multi-line if a commit message is long,
+        # it's safer to use the heredoc style for GITHUB_OUTPUT.
         notes="Automated github release on commit ${{ github.sha }}, for ${{ steps.parse-semver.outputs.SEMVER }} (uind:${{ steps.determine-uind.outputs.result }})"
-        echo "NOTES=$notes" >> $GITHUB_OUTPUT
+        echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+        echo "$notes" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Set DEPLOY_URL and GH_UPMETA_REPO
       id: set-deploy-url
@@ -151,7 +155,9 @@ jobs:
 
         release_notes+="\`\`\`\n</details>\n"
 
-        echo "::set-output name=notes::$release_notes"
+        echo "notes<<EOM" >> $GITHUB_OUTPUT
+        echo "$release_notes" >> $GITHUB_OUTPUT
+        echo "EOM" >> $GITHUB_OUTPUT
 
     - name: Create GitHub Release with metadata and assets
       uses: softprops/action-gh-release@v1
