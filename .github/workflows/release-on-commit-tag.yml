@@ -79,7 +79,7 @@ jobs:
 
     - name: Generate public key from private key
       run: |
-        openssl rsa -in signing/private.pem -pubout -out signing/public.pem
+        openssl ec -in signing/private.pem -pubout -out signing/public.pem
 
     - name: Get build metadata
       id: build-metadata
