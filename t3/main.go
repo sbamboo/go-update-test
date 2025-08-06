@@ -342,11 +342,6 @@ func (nu *NetUpdater) getLatestVersionFromJsonDeploy() (*NetUpReleaseInfo, error
 
 // getLatestVersionFromGitHub fetches update metadata from GitHub releases.
 func (nu *NetUpdater) getLatestVersionFromGitHub() (*NetUpReleaseInfo, error) {
-	channelTag := strings.TrimPrefix(nu.Channel, "git.") // Get the specific channel tag (e.g., "stable", "beta")
-	if channelTag == "" {
-		channelTag = "default" // Fallback if just "git." is given
-	}
-
 	ghReleases, err := nu.ghMetaFetcher.FetchUpMetaReleases()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch GitHub releases: %w", err)
@@ -367,7 +362,7 @@ func (nu *NetUpdater) getLatestVersionFromGitHub() (*NetUpReleaseInfo, error) {
 		}
 
 		// Filter by channel
-		if upmeta.Channel != channelTag {
+		if upmeta.Channel != nu.Channel {
 			continue
 		}
 
