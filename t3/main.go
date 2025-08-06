@@ -34,20 +34,20 @@ var appPublicKey []byte
 
 // SourceInfo holds URLs for a specific OS/Architecture
 type SourceInfo struct {
-	IsPatch  bool    `json:"is_patch"`
-	URL      string  `json:"url"`
-	PatchURL *string `json:"patch_url"` // Pointer to string to allow null
-	PatchFor *int    `json:"patch_for"` // Pointer to int to allow null
+	IsPatch   bool    `json:"is_patch"`
+	URL       string  `json:"url"`
+	PatchURL  *string `json:"patch_url"` // Pointer to string to allow null
+	PatchFor  *int    `json:"patch_for"` // Pointer to int to allow null
+	Checksum  string  `json:"checksum"`
+	Signature string  `json:"signature"`
 }
 
 type ReleaseInfo struct {
-	UIND      int                   `json:"uind"`
-	Semver    string                `json:"semver"`
-	Released  string                `json:"released"`
-	Notes     string                `json:"notes"`
-	Sources   map[string]SourceInfo `json:"sources"` // Map for platform-specific URLs
-	Checksum  string                `json:"checksum"`
-	Signature string                `json:"signature"`
+	UIND     int                   `json:"uind"`
+	Semver   string                `json:"semver"`
+	Released string                `json:"released"`
+	Notes    string                `json:"notes"`
+	Sources  map[string]SourceInfo `json:"sources"` // Map for platform-specific URLs
 }
 
 type DeployFile struct {
@@ -178,14 +178,21 @@ func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 		return fmt.Errorf("failed to set public key: %w", err)
 	}
 
+	// Get platform-specific source URLs
+	platformKey := fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH)
+	latestPlatformRelease, ok := latestRelease.Sources[platformKey]
+	if !ok {
+		return fmt.Errorf("no update source found for current platform: %s", platformKey)
+	}
+
 	// Checksum
-	checksum, err := hex.DecodeString(latestRelease.Checksum)
+	checksum, err := hex.DecodeString(latestPlatformRelease.Checksum)
 	if err != nil {
 		return fmt.Errorf("failed to decode checksum: %w", err)
 	}
 
 	// Decode base64 signature
-	signature, err := base64.StdEncoding.DecodeString(latestRelease.Signature)
+	signature, err := base64.StdEncoding.DecodeString(latestPlatformRelease.Signature)
 	if err != nil {
 		return fmt.Errorf("failed to decode signature: %w", err)
 	}
@@ -194,13 +201,6 @@ func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 	opts.Signature = signature
 	opts.Hash = crypto.SHA256                 // Default, but good to explicitly set
 	opts.Verifier = update.NewECDSAVerifier() // Default, but good to explicitly set
-
-	// Get platform-specific source URLs
-	platformKey := fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH)
-	latestPlatformRelease, ok := latestRelease.Sources[platformKey]
-	if !ok {
-		return fmt.Errorf("no update source found for current platform: %s", platformKey)
-	}
 
 	var updateReader io.Reader
 

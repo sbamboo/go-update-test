@@ -489,6 +489,8 @@ $sourceInfo = @{
     url       = $fullBinaryURL
     patch_url = $patchURL
     patch_for = $null
+    checksum  = $checksum
+    signature = $signature
 }
 
 if ($patchForUIND -ne $null) {
@@ -504,8 +506,6 @@ $releaseEntry = @{
     released  = $buildTime
     notes     = $notes
     sources   = $sourcesMap
-    checksum  = $checksum
-    signature = $signature
 }
 
 $jsonEntry = ConvertTo-Json -InputObject $releaseEntry -Compress
