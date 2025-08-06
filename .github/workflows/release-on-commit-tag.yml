@@ -93,7 +93,7 @@ jobs:
         echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_OUTPUT
 
     - name: Create build directory
-      run: mkdir -p builds
+      run: mkdir -p ci_builds
 
     - name: Build, checksum, sign, and generate release notes metadata
       id: build-and-sign
@@ -133,15 +133,15 @@ jobs:
             -X 'main.AppCommitHash=$commit_hash' \
             -X 'main.AppDeployURL=$deploy_url' \
             -X 'main.AppGhUpMetaRepo=$gh_upmeta_repo'" \
-            -o builds/$filename .
+            -o ci_builds/$filename .
 
           echo "Calculating checksum..."
-          checksum=$(sha256sum builds/$filename | cut -d' ' -f1)
+          checksum=$(sha256sum ci_builds/$filename | cut -d' ' -f1)
 
           echo "Signing file..."
-          openssl dgst -sha256 -sign signing/private.pem -out "builds/$filename.sig" "builds/$filename"
-          signature=$(base64 -w 0 < "builds/$filename.sig")
-          rm "builds/$filename.sig"
+          openssl dgst -sha256 -sign signing/private.pem -out "ci_builds/$filename.sig" "ci_builds/$filename"
+          signature=$(base64 -w 0 < "ci_builds/$filename.sig")
+          rm "ci_builds/$filename.sig"
 
           release_notes+="    $goos-$goarch:\n"
           release_notes+="      filename: $filename\n"
@@ -165,6 +165,6 @@ jobs:
           --notes-file release_notes.md \
           --repo "${GITHUB_REPOSITORY}" \
           --prerelease=true \
-          builds/*
+          ci_builds/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
