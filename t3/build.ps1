@@ -17,8 +17,8 @@ param (
 )
 
 # --- Configuration ---
-$publicKeyFile = "public.key"
-$privateKeyFile = "private.key"
+$publicKeyFile = "public.pem"
+$privateKeyFile = "private.pem"
 $outputPath = "./builds"
 $appName = "updatetest" # Name of your Go executable
 
@@ -57,31 +57,35 @@ Examples:
 
 # --- Helper Functions ---
 
-function Generate-PrivateKey {
+function Generate-KeyPair {
     param (
-        [string]$privateKeyPath
+        [string]$privateKeyPath,
+        [string]$publicKeyPath
     )
+    # Private
+    $re_made_private_key = $false
     if (-not (Test-Path $privateKeyPath)) {
         Write-Host "Generating new ECDSA private key..." -ForegroundColor Yellow
         try {
-            & openssl ecparam -name prime256v1 -genkey -noout -out $privateKeyPath
+            & openssl ecparam -genkey -name prime256v1 -noout -out $privateKeyPath
             Write-Host "Private key saved to: $privateKeyPath" -ForegroundColor Green
         }
         catch {
             Write-Error "Failed to generate private key. Make sure OpenSSL is installed and in your PATH."
             exit 1
         }
+        $re_made_private_key = $true
     } else {
         Write-Host "Private key already exists: $privateKeyPath" -ForegroundColor Cyan
     }
-}
-
-function Generate-PublicKey {
-    param (
-        [string]$privateKeyPath,
-        [string]$publicKeyPath
-    )
-    if (-not (Test-Path $publicKeyPath)) {
+    # Public
+    if (-not (Test-Path $publicKeyPath) -or $re_made_private_key) {
+        # If $re_made_private_key is true, check if public key exists if so delete it
+        if ($re_made_private_key -and (Test-Path $publicKeyPath)) {
+            Remove-Item $publicKeyPath -Force
+            Write-Host "Invalidated and removed existing public key: $publicKeyPath" -ForegroundColor Yellow
+        }
+        # If public key doesn't exist or we just created a new private key, generate public key
         Write-Host "Generating public key from private key..." -ForegroundColor Yellow
         try {
             & openssl ec -in $privateKeyPath -pubout -out $publicKeyPath
@@ -107,7 +111,7 @@ function Get-BinaryChecksum {
     $fileStream = [System.IO.File]::OpenRead($filePath)
     $hashBytes = $hasher.ComputeHash($fileStream)
     $fileStream.Close()
-    return ([System.BitConverter]::ToString($hashBytes) -replace '-', '').ToLower()
+    return ([System.BitConverter]::ToString($hashBytes) -replace '-', '').ToLower() # Convert to lowercase hex string
 }
 
 function Sign-Binary {
@@ -122,34 +126,28 @@ function Sign-Binary {
         throw "Private key file not found: $privateKeyPath"
     }
 
+    $signatureFilePath = "$filePath.sig"
+
     Write-Host "Signing binary..." -ForegroundColor Cyan
     try {
-        # Calculate SHA256 hash of the binary
-        $checksumBytes = [System.Security.Cryptography.SHA256]::Create().ComputeHash([System.IO.File]::ReadAllBytes($filePath))
+        # Run openssl to sign the file using SHA256 and ECDSA
+        & openssl dgst -sha256 -sign $privateKeyPath -out $signatureFilePath $filePath
 
-        # Write checksum bytes to a temporary file
-        $checksumFile = [System.IO.Path]::GetTempFileName()
-        [System.IO.File]::WriteAllBytes($checksumFile, $checksumBytes)
-
-        $signatureFilePath = "$filePath.sig"
-        # Run OpenSSL to sign the checksum file, output to signature file
-        $opensslArgs = "dgst -sha256 -sign `"$privateKeyPath`" -out `"$signatureFilePath`" -binary `"$checksumFile`""
-
-        $process = Start-Process -FilePath "openssl" -ArgumentList $opensslArgs -Wait -PassThru -NoNewWindow -ErrorAction Stop
-
-        if ($process.ExitCode -ne 0) {
-            throw "OpenSSL signing failed with exit code $($process.ExitCode)"
+        if (-not (Test-Path $signatureFilePath)) {
+            throw "Signature file was not created."
         }
 
-        $signatureBytes = [System.IO.File]::ReadAllBytes($signatureFilePath)
+        # Read signature file as bytes
+        $sigBytes = [System.IO.File]::ReadAllBytes($signatureFilePath)
 
-        # Clean up temp files
-        Remove-Item $signatureFilePath
-        Remove-Item $checksumFile
+        # Encode to base64 using PowerShell
+        $base64Signature = [Convert]::ToBase64String($sigBytes)
 
-        return ([System.BitConverter]::ToString($signatureBytes) -replace '-', '').ToLower()
-    }
-    catch {
+        # Delete the temporary signature file
+        Remove-Item $signatureFilePath -Force
+
+        return $base64Signature
+    } catch {
         Write-Error "Failed to sign binary: $($_.Exception.Message)"
         exit 1
     }
@@ -262,8 +260,7 @@ function Format-Json
 # --- Main Script ---
 
 # 1. Generate Key Pair if it doesn't exist
-Generate-PrivateKey $privateKeyFile
-Generate-PublicKey $privateKeyFile $publicKeyFile
+Generate-KeyPair $privateKeyFile $publicKeyFile
 
 # 2. Get User Input
 # semver
@@ -400,14 +397,8 @@ $binaryName += "_$platformKey"
 
 if ($targetOS -eq "windows") { $binaryName += ".exe" }
 
-# Read and escape public key for ldflags
-$publicKeyContentRaw = Get-Content $publicKeyFile -Raw
-# Remove newlines and replace with \n (escaped newlines) for embedding in string literal
-$publicKeyContentEscaped = $publicKeyContentRaw.Replace("`r`n", "\n").Replace("`n", "\n")
-$publicKeyContentEscaped = $publicKeyContentEscaped.Replace('"', '\"')
-
 $outputBinaryPath = Join-Path $outputPath $binaryName
-$ldFlags = "-X 'main.AppVersion=$semver' -X 'main.AppUIND=$uind' -X 'main.AppChannel=$channel' -X 'main.AppBuildTime=$buildTime' -X 'main.AppCommitHash=$commitHash' -X 'main.AppPublicKey=$publicKeyContentEscaped'"
+$ldFlags = "-X 'main.AppVersion=$semver' -X 'main.AppUIND=$uind' -X 'main.AppChannel=$channel' -X 'main.AppBuildTime=$buildTime' -X 'main.AppCommitHash=$commitHash'"
 
 if ($debugLdflags) {
     Write-Host "Debug ldflags:`n$ldFlags" -ForegroundColor Cyan

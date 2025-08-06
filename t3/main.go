@@ -4,18 +4,20 @@ import (
 	"bufio"
 	"bytes"
 	"crypto"
-	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os" // Import runtime to get current OS/Arch
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/inconshreveable/go-update"
+
+	_ "embed"
 )
 
 // App metadata injected at compile time
@@ -25,8 +27,10 @@ var (
 	AppChannel    = "default"
 	AppBuildTime  = "unknown"
 	AppCommitHash = "unknown"
-	AppPublicKey  string
 )
+
+//go:embed public.pem
+var AppPublicKey []byte
 
 // SourceInfo holds URLs for a specific OS/Architecture
 type SourceInfo struct {
@@ -168,30 +172,28 @@ func getLatestVersion(channel string) (*ReleaseInfo, error) {
 func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 	opts := update.Options{}
 
-	cleanPublicKey := strings.ReplaceAll(AppPublicKey, `\n`, "\n")
-
 	// Set public key for signature verification
-	err := opts.SetPublicKeyPEM([]byte(cleanPublicKey))
+	err := opts.SetPublicKeyPEM(AppPublicKey)
 	if err != nil {
 		return fmt.Errorf("failed to set public key: %w", err)
 	}
 
-	// Set checksum and signature
+	// Checksum
 	checksum, err := hex.DecodeString(latestRelease.Checksum)
 	if err != nil {
 		return fmt.Errorf("failed to decode checksum: %w", err)
 	}
 
-	// Debug the latestRelease.Signature
-	fmt.Printf("Latest Release Signature: @%s@", latestRelease.Signature)
-
-	signature, err := hex.DecodeString(latestRelease.Signature)
+	// Decode base64 signature
+	signature, err := base64.StdEncoding.DecodeString(latestRelease.Signature)
 	if err != nil {
 		return fmt.Errorf("failed to decode signature: %w", err)
 	}
+
 	opts.Checksum = checksum
 	opts.Signature = signature
-	opts.Hash = crypto.SHA256 // Default, but good to explicitly set
+	opts.Hash = crypto.SHA256                 // Default, but good to explicitly set
+	opts.Verifier = update.NewECDSAVerifier() // Default, but good to explicitly set
 
 	// Get platform-specific source URLs
 	platformKey := fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH)
@@ -264,33 +266,36 @@ func performUpdate(latestRelease *ReleaseInfo, currentUIND int) error {
 		return fmt.Errorf("failed to apply update: %w", err)
 	}
 
-	// After a successful apply, re-verify the checksum of the written file
-	// This is redundant if go-update's checksum verification passes, but good for understanding
-	// In a real scenario, go-update handles this internally if `opts.Checksum` is set.
-	fmt.Println("Update applied. Verifying checksum of the new binary...")
-	newBinaryPath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("failed to get executable path for final verification: %w", err)
-	}
+	// AI Slop
+	/*
+		// After a successful apply, re-verify the checksum of the written file
+		// This is redundant if go-update's checksum verification passes, but good for understanding
+		// In a real scenario, go-update handles this internally if `opts.Checksum` is set.
+		fmt.Println("Update applied. Verifying checksum of the new binary...")
+		newBinaryPath, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("failed to get executable path for final verification: %w", err)
+		}
 
-	newBinaryFile, err := os.Open(newBinaryPath)
-	if err != nil {
-		return fmt.Errorf("failed to open new binary for verification: %w", err)
-	}
-	defer newBinaryFile.Close()
+		newBinaryFile, err := os.Open(newBinaryPath)
+		if err != nil {
+			return fmt.Errorf("failed to open new binary for verification: %w", err)
+		}
+		defer newBinaryFile.Close()
 
-	hasher := sha256.New()
-	if _, err := io.Copy(hasher, newBinaryFile); err != nil {
-		return fmt.Errorf("failed to hash new binary for verification: %w", err)
-	}
-	newBinaryChecksum := hasher.Sum(nil)
-	expectedChecksum, _ := hex.DecodeString(latestRelease.Checksum)
+		hasher := sha256.New()
+		if _, err := io.Copy(hasher, newBinaryFile); err != nil {
+			return fmt.Errorf("failed to hash new binary for verification: %w", err)
+		}
+		newBinaryChecksum := hasher.Sum(nil)
+		expectedChecksum, _ := hex.DecodeString(latestRelease.Checksum)
 
-	if !bytes.Equal(newBinaryChecksum, expectedChecksum) {
-		return fmt.Errorf("checksum mismatch after update! Expected %s, got %s. Update potentially corrupted.",
-			latestRelease.Checksum, hex.EncodeToString(newBinaryChecksum))
-	}
-	fmt.Println("Checksum verified successfully.")
+		if !bytes.Equal(newBinaryChecksum, expectedChecksum) {
+			return fmt.Errorf("checksum mismatch after update! Expected %s, got %s. Update potentially corrupted.",
+				latestRelease.Checksum, hex.EncodeToString(newBinaryChecksum))
+		}
+		fmt.Println("Checksum verified successfully.")
+	*/
 
 	return nil
 }

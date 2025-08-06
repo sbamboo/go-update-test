@@ -1,14 +1,14 @@
 # CD to .\ folder based on the current script location (<currentScript>)
 Set-Location -Path (Split-Path -Parent $MyInvocation.MyCommand.Path)
 
-# Delete ./private.key if exists
-if (Test-Path -Path "./private.key") {
-    Remove-Item -Path "./private.key" -Force
+# Delete ./private.pem if exists
+if (Test-Path -Path "./private.pem") {
+    Remove-Item -Path "./private.pem" -Force
 }
 
-# Delete ./public.key if exists
-if (Test-Path -Path "./public.key") {
-    Remove-Item -Path "./public.key" -Force
+# Delete ./public.pem if exists
+if (Test-Path -Path "./public.pem") {
+    Remove-Item -Path "./public.pem" -Force
 }
 
 # Delete ./builds folder
