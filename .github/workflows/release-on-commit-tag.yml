@@ -58,7 +58,7 @@ jobs:
       run: |
         # Since this note can be multi-line if a commit message is long,
         # it's safer to use the heredoc style for GITHUB_OUTPUT.
-        notes="Automated github release on commit ${{ github.sha }}, for ${{ steps.parse-semver.outputs.SEMVER }} (uind:${{ steps.determine-uind.outputs.result }})"
+        notes="Automated github release on commit ${{ github.sha }}, for v${{ steps.parse-semver.outputs.SEMVER }} (uind:${{ steps.determine-uind.outputs.result }})"
         echo "NOTES<<EOF" >> $GITHUB_OUTPUT
         echo "$notes" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
