@@ -62,7 +62,7 @@ type UpMeta struct {
 	Sources map[string]struct {
 		URL            string  `yaml:"url,omitempty" json:"url"`
 		Checksum       string  `yaml:"checksum" json:"checksum"`
-		Signature      string  `yaml:"signature" `
+		Signature      string  `yaml:"signature" json:"signature"`
 		IsPatch        bool    `yaml:"is_patch" json:"is_patch"`
 		PatchFor       *int    `yaml:"patch_for" json:"patch_for"`
 		PatchChecksum  *string `yaml:"patch_checksum" json:"patch_checksum"`
@@ -174,7 +174,7 @@ func (gum *GhUpMetaFetcher) parseReleaseBody(body string) (string, *UpMeta, erro
 	notes := strings.TrimSpace(strings.SplitN(body, "<details>", 2)[0])
 
 	// Match all ```yaml ... blocks
-	codeBlockRe := regexp.MustCompile("(?s)```yaml\\s*\n(.*?)```") // Corrected regex for non-greedy match
+	codeBlockRe := regexp.MustCompile("(?s)```yaml\\s*\n(.*?)```")
 	matches := codeBlockRe.FindAllStringSubmatch(body, -1)
 
 	if matches == nil || len(matches) == 0 {
@@ -346,6 +346,13 @@ func (nu *NetUpdater) getLatestVersionFromGitHub() (*NetUpReleaseInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch GitHub releases: %w", err)
 	}
+
+	jsonOutput, err := json.MarshalIndent(ghReleases, "", "  ")
+	if err != nil {
+		fmt.Println("ERROR marshalling JSON:", err)
+		os.Exit(1)
+	}
+	fmt.Println(string(jsonOutput))
 
 	var latestUpMeta *UpMeta
 	var latestNotes string
