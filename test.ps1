@@ -40,10 +40,6 @@ Set-Content -Path "./deploy.json" -Value $deployJsonContent -Force
 # Run builds script for four versions
 .\build.ps1 -semver 0.0.0 -uind 1 -channel dev -notes "The first commit (dev)" -auto -noCrossCompile -addDeploy .\deploy.json -deployURL "https://raw.githubusercontent.com/sbamboo/go-update-test/refs/heads/main/deploy.json" -ghUpMetaRepo "sbamboo/go-update-test"
 .\build.ps1 -semver 0.0.0 -uind 2 -channel release -notes "The first commit" -auto -noCrossCompile -addDeploy .\deploy.json -deployURL "https://raw.githubusercontent.com/sbamboo/go-update-test/refs/heads/main/deploy.json" -ghUpMetaRepo "sbamboo/go-update-test"
-
-# Simulate github actions workflow by removing the signatures/public.pem file here
-Remove-Item -Path "./signing/public.pem" -Force
-
 .\build.ps1 -semver 0.0.1 -uind 3 -channel dev -notes "The second commit (dev)" -auto -noCrossCompile -addDeploy .\deploy.json -deployURL "https://raw.githubusercontent.com/sbamboo/go-update-test/refs/heads/main/deploy.json" -ghUpMetaRepo "sbamboo/go-update-test"
 .\build.ps1 -semver 0.0.1 -uind 4 -channel release -notes "The second commit" -auto -noCrossCompile -addDeploy .\deploy.json -deployURL "https://raw.githubusercontent.com/sbamboo/go-update-test/refs/heads/main/deploy.json" -ghUpMetaRepo "sbamboo/go-update-test"
 

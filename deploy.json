@@ -5,17 +5,17 @@
             {
                 "semver": "0.0.0",
                 "uind": 1,
-                "released": "2025-08-06T22:33:11Z",
+                "released": "2025-08-06T22:47:26Z",
                 "sources": {
                     "windows-amd64": {
                         "patch_signature": null,
-                        "checksum": "202eba423a5c77e7d03931105de1049b0267cef409376f4e2fed3088b168598d",
+                        "checksum": "5e325c0324f475b2f5bbf9a63b49b7da525cf182aaf7890580b740e410a5db66",
                         "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/updatetest_v0.0.0_dev_windows-amd64.exe",
                         "patch_checksum": null,
                         "patch_url": null,
                         "patch_for": null,
                         "is_patch": false,
-                        "signature": "MEUCIBOZ5rP8HK0V+oZIeoJkCCUd+Li61RT+PfM3LmvFjhERAiEA5rcBtlsLBku1HX4lL2chZd5eSm0B9Y+h6hCxGZHC1S0="
+                        "signature": "MEYCIQDpMA8FCT82PbOCQMmdH0DV0Ju/dxD+Z5vCoowyo2/ztAIhAK5qNz/ElK3jrkI1X0/TZravyIXBIDvXiQXBCaexEaJP"
                     }
                 },
                 "notes": "The first commit (dev)"
@@ -23,17 +23,17 @@
             {
                 "semver": "0.0.1",
                 "uind": 3,
-                "released": "2025-08-06T22:33:16Z",
+                "released": "2025-08-06T22:47:31Z",
                 "sources": {
                     "windows-amd64": {
                         "patch_signature": null,
-                        "checksum": "e08d3ec89fcd7976e9d6b4a7de86f7d31df8738df195efa5afe11bdc61bb2316",
+                        "checksum": "01c56353795d14bee4733abb61f1c253b5d53660936c62558273b1d6f730c69f",
                         "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/updatetest_v0.0.1_dev_windows-amd64.exe",
                         "patch_checksum": null,
                         "patch_url": null,
                         "patch_for": null,
                         "is_patch": false,
-                        "signature": "MEUCIQCLpFbfLWkMIYPP3seAYAkElatIIBKKsuCtgFWyTC14nwIgbJwRU3n+RhrALKaupDWHWQ75UF4WquEW/64GYuiJDBY="
+                        "signature": "MEUCIQDHISVdajFNP1qBBoFSaRiptxmvgiMyW5uqonKuNKIa2QIgFbOm8LMG2296S8bZLVxPG7R0AUCVTBUA0IW3dqIhlDQ="
                     }
                 },
                 "notes": "The second commit (dev)"
@@ -43,17 +43,17 @@
             {
                 "semver": "0.0.0",
                 "uind": 2,
-                "released": "2025-08-06T22:33:13Z",
+                "released": "2025-08-06T22:47:29Z",
                 "sources": {
                     "windows-amd64": {
                         "patch_signature": null,
-                        "checksum": "d97d0e5c981702e6ba0d9a1a1400abd878570910c41d3e69fa8c8bd7f7996328",
+                        "checksum": "31f47340c93f615ebbae3e4230e14f46ef939f06b2127792ca200039a3aa6bca",
                         "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/updatetest_v0.0.0_release_windows-amd64.exe",
                         "patch_checksum": null,
                         "patch_url": null,
                         "patch_for": null,
                         "is_patch": false,
-                        "signature": "MEYCIQCFwO7jiSwGoDTcpCyxoa+sYXYI2197gtdP9y4+TKSK3gIhAN4QBpiyRpaVcZbDgLgLioqNQUXWwVj5K0bhYKdxeWZF"
+                        "signature": "MEYCIQDuEopj9ijOtrs00y6sZCIS7HlDFoYuLTzNs3tbiyxbIwIhAN9uz0ks8KW7ZJq6wUxfgDo7zRvmuAjYIs3iciNTcEeE"
                     }
                 },
                 "notes": "The first commit"
@@ -61,17 +61,17 @@
             {
                 "semver": "0.0.1",
                 "uind": 4,
-                "released": "2025-08-06T22:33:18Z",
+                "released": "2025-08-06T22:47:34Z",
                 "sources": {
                     "windows-amd64": {
                         "patch_signature": null,
-                        "checksum": "043a42c797958f27770a191e23932a67975e2894994564131437380ceaf51801",
+                        "checksum": "e3bc1e01a8342fd642088ee42291175b225e74ddb6674073a4320bad3b1285ab",
                         "url": "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/builds/updatetest_v0.0.1_release_windows-amd64.exe",
                         "patch_checksum": null,
                         "patch_url": null,
                         "patch_for": null,
                         "is_patch": false,
-                        "signature": "MEUCIQCaftzDqCy+N6FUK5lLfOTwYmafgnrgO5dOoZUlG1ruOAIgOMJpLjWfmQkmdy81ZzWeU3raEtcQvfRC8q5ay8cvo/U="
+                        "signature": "MEUCIQCyRWPhDAPE9dg317FTzWqUckyhNWmC8hrF3UfgL/vQ/wIgbXwev+jUFnmPu2m81oX2dJ24/L8/iCsjUNnt92ox4ws="
                     }
                 },
                 "notes": "The second commit"

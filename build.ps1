@@ -106,6 +106,20 @@ function Generate-KeyPair {
     }
 }
 
+function LFNormalizePemFile {
+    param (
+        [string]$pemFilePath
+    )
+    if (-not (Test-Path $pemFilePath)) {
+        throw "PEM file not found: $pemFilePath"
+    }
+    # Read the PEM file, normalize line endings to LF, and write back
+    $content = Get-Content -Path $pemFilePath -Raw
+    $normalizedContent = $content -replace "`r`n", "`n" # Normalize to LF
+    Set-Content -Path $pemFilePath -Value $normalizedContent -Encoding UTF8
+    Write-Host "Normalized PEM file: $pemFilePath" -ForegroundColor Green	
+}
+
 function Get-BinaryChecksum {
     param (
         [string]$filePath
