@@ -141,6 +141,7 @@ jobs:
           echo "Signing file..."
           openssl dgst -sha256 -sign signing/private.pem -out "builds/$filename.sig" "builds/$filename"
           signature=$(base64 -w 0 < "builds/$filename.sig")
+          rm "builds/$filename.sig"
 
           release_notes+="    $goos-$goarch:\n"
           release_notes+="      filename: $filename\n"
