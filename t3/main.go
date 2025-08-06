@@ -30,9 +30,6 @@ var (
 	AppChannel    = "default"
 	AppBuildTime  = "unknown"
 	AppCommitHash = "unknown"
-	// AppGithubUpMetaRepo is the GitHub repository in "owner/repo" format.
-	// This will be used if AppChannel starts with "git.".
-	AppGithubUpMetaRepo *string = nil // Set to nil by default, can be injected at compile time
 )
 
 //go:embed public.pem
@@ -523,6 +520,8 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 
 // --- Main application logic ---
 
+func ptr[T any](v T) *T { return &v }
+
 func main() {
 	// Initialize the NetUpdater with app details and the deployment URL
 	// Pass AppGithubUpMetaRepo as the new parameter
@@ -533,7 +532,7 @@ func main() {
 		AppBuildTime,
 		AppCommitHash,
 		"https://raw.githubusercontent.com/sbamboo/go-update-test/refs/heads/main/t3/deploy.json",
-		AppGithubUpMetaRepo, // Pass the new parameter
+		ptr("sbamboo/go-update-test"),
 		appPublicKey,
 		fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH),
 	)
@@ -568,7 +567,7 @@ func main() {
 
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		fmt.Print("Enter channel name (e.g., 'default', 'git.stable'), 'update', or 'exit': ")
+		fmt.Print("Enter channel name, 'update', or 'exit': ")
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
 
