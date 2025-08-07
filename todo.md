@@ -1,3 +1,4 @@
 - Allow to force onto latest of channel or make UIND per channel
+- Another format for github release channels, where tag is "<channel>/<uind>/<semver>" and release executables end in the target-key, checksum is relied on gh-digest and .sig is released per file, if patch is needed they are assumed to be <filename>_<uind-pre>t<uind-new>.patch; this removes the need for upmeta
 - Github action build with binarypatches?
 - Another github action that somehow takes metadata dynamically so we can trigger a build locally with build-ci.ps1/.bat
