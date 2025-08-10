@@ -150,7 +150,7 @@ jobs:
 
     - name: Create GitHub Release with metadata and assets
       run: |
-        gh release create "$RELEASE_TAG" \
+        gh release create "${{ steps.construct-release-tag.outputs.RELEASE_TAG }}" \
           --title "Release ${{ steps.parse-semver.outputs.SEMVER }}" \
           --notes-file release_notes.md \
           --repo "${GITHUB_REPOSITORY}" \
