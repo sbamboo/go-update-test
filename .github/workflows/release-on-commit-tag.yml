@@ -3,7 +3,7 @@ name: Release on commit tag
 on:
   push:
     tags:
-      - 'commit_*.*.*'
+      - 'ucommit_*.*.*'
 
 jobs:
   build_and_release:

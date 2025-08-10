@@ -2,9 +2,9 @@
 Set-Location -Path (Split-Path -Parent $MyInvocation.MyCommand.Path)
 
 # Delete ./private.pem if exists
-if (Test-Path -Path "./private.pem") {
-    Remove-Item -Path "./private.pem" -Force
-}
+#if (Test-Path -Path "./private.pem") {
+#    Remove-Item -Path "./private.pem" -Force
+#}
 
 # Delete ./public.pem if exists
 if (Test-Path -Path "./public.pem") {
@@ -12,9 +12,9 @@ if (Test-Path -Path "./public.pem") {
 }
 
 # Delete ./signing/private.pem if exists
-if (Test-Path -Path "./signing/private.pem") {
-    Remove-Item -Path "./signing/private.pem" -Force
-}
+#if (Test-Path -Path "./signing/private.pem") {
+#    Remove-Item -Path "./signing/private.pem" -Force
+#}
 # Delete ./signing/public.pem if exists
 if (Test-Path -Path "./signing/public.pem") {
     Remove-Item -Path "./signing/public.pem" -Force
