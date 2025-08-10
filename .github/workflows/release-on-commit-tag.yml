@@ -3,7 +3,7 @@ name: Release on commit tag
 on:
   push:
     tags:
-      - 'ucommit_*.*.*'
+      - 'commit_*.*.*'
 
 jobs:
   build_and_release:
@@ -21,11 +21,11 @@ jobs:
       id: parse-semver
       run: |
         tag="${GITHUB_REF##refs/tags/}"    # e.g. commit_1.2.3
-        semver="${tag#ucommit_}"            # strip 'ucommit_'
+        semver="${tag#commit_}"            # strip 'commit_'
         echo "SEMVER=$semver" >> $GITHUB_OUTPUT
 
     - name: Set CHANNEL
-      run: echo "CHANNEL=ugit.commit" >> $GITHUB_OUTPUT
+      run: echo "CHANNEL=git.commit" >> $GITHUB_OUTPUT
       id: set-channel
 
     - name: Determine next UIND from existing releases
@@ -53,11 +53,14 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Construct Release Tag Name (ci-<channel>-<uind>-<semver>)
+      id: construct-release-tag
+      run: |
+        echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_OUTPUT
+
     - name: Set NOTES
       id: set-notes
       run: |
-        # Since this note can be multi-line if a commit message is long,
-        # it's safer to use the heredoc style for GITHUB_OUTPUT.
         notes="Automated github release on commit ${{ github.sha }}, for v${{ steps.parse-semver.outputs.SEMVER }} (uind:${{ steps.determine-uind.outputs.result }})"
         echo "NOTES<<EOF" >> $GITHUB_OUTPUT
         echo "$notes" >> $GITHUB_OUTPUT
@@ -116,8 +119,6 @@ jobs:
           "darwin/arm64"
         )
 
-        release_notes="${{ steps.set-notes.outputs.NOTES }}\n\n<details>\n<summary>[UpMeta]</summary>\n\n\`\`\`yaml\n__upmeta__: \"3495a9db\"\nformat: 1\nuind: $uind\nsemver: $semver\nchannel: $channel\nsources:\n"
-
         for platform in "${platforms[@]}"; do
           goos="${platform%%/*}"
           goarch="${platform##*/}"
@@ -141,26 +142,13 @@ jobs:
           echo "Signing file..."
           openssl dgst -sha256 -sign signing/private.pem -out "ci_builds/$filename.sig" "ci_builds/$filename"
           signature=$(base64 -w 0 < "ci_builds/$filename.sig")
-          rm "ci_builds/$filename.sig"
-
-          release_notes+="    $goos-$goarch:\n"
-          release_notes+="      filename: $filename\n"
-          release_notes+="      checksum: $checksum\n"
-          release_notes+="      signature: $signature\n"
-          release_notes+="      is_patch: false\n"
-          release_notes+="      patch_for: null\n"
-          release_notes+="      patch_checksum: null\n"
-          release_notes+="      patch_signature: null\n"
-          release_notes+="      patch_asset: null\n"
         done
 
-        release_notes+="\`\`\`\n</details>\n"
-
-        echo -e "${release_notes//\\n/$'\n'}" > release_notes.md
+        echo -e "${{ steps.set-notes.outputs.NOTES }}" > release_notes.md
 
     - name: Create GitHub Release with metadata and assets
       run: |
-        gh release create "${GITHUB_REF##*/}" \
+        gh release create "${{ steps.construct-release-tag.outputs.RELEASE_TAG }}" \
           --title "Release ${{ steps.parse-semver.outputs.SEMVER }}" \
           --notes-file release_notes.md \
           --repo "${GITHUB_REPOSITORY}" \

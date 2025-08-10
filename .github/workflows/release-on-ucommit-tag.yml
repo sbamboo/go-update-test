@@ -1,0 +1,168 @@
+name: Release on commit tag
+
+on:
+  push:
+    tags:
+      - 'ucommit_*.*.*'
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: "on"
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Parse SEMVER from tag
+      id: parse-semver
+      run: |
+        tag="${GITHUB_REF##refs/tags/}"    # e.g. commit_1.2.3
+        semver="${tag#ucommit_}"            # strip 'ucommit_'
+        echo "SEMVER=$semver" >> $GITHUB_OUTPUT
+
+    - name: Set CHANNEL
+      run: echo "CHANNEL=ugit.commit" >> $GITHUB_OUTPUT
+      id: set-channel
+
+    - name: Determine next UIND from existing releases
+      id: determine-uind
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const releases = await github.rest.repos.listReleases({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+          });
+          let maxUind = 0;
+          for (const release of releases.data) {
+            if (release.body) {
+              const match = release.body.match(/uind:\s*(\d+)/);
+              if (match) {
+                const uind = parseInt(match[1], 10);
+                if (!isNaN(uind) && uind > maxUind) {
+                  maxUind = uind;
+                }
+              }
+            }
+          }
+          return maxUind + 1;
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set NOTES
+      id: set-notes
+      run: |
+        notes="Automated github release on commit ${{ github.sha }}, for v${{ steps.parse-semver.outputs.SEMVER }} (uind:${{ steps.determine-uind.outputs.result }})"
+        echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+        echo "$notes" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Set DEPLOY_URL and GH_UPMETA_REPO
+      id: set-deploy-url
+      run: |
+        echo "DEPLOY_URL=https://raw.githubusercontent.com/${{ github.repository }}/refs/heads/main/deploy.json" >> $GITHUB_OUTPUT
+        echo "GH_UPMETA_REPO=${{ github.repository }}" >> $GITHUB_OUTPUT
+
+    - name: Setup dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y openssl bsdiff golang-go
+
+    - name: Create signing directory and load private key
+      run: |
+        mkdir -p signing
+        echo "${{ secrets.NETUPDATE_SIGNING_PRIVATE_PEM }}" | tr -d '\r' > signing/private.pem
+        chmod 600 signing/private.pem
+
+    - name: Generate public key from private key
+      run: |
+        openssl ec -in signing/private.pem -pubout -out signing/public.pem
+
+    - name: Get build metadata
+      id: build-metadata
+      run: |
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        COMMIT_HASH=${GITHUB_SHA}
+        echo "BUILD_TIME=$BUILD_TIME" >> $GITHUB_OUTPUT
+        echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_OUTPUT
+
+    - name: Create build directory
+      run: mkdir -p ci_builds
+
+    - name: Build, checksum, sign, and generate release notes metadata
+      id: build-and-sign
+      run: |
+        set -e
+        semver="${{ steps.parse-semver.outputs.SEMVER }}"
+        uind="${{ steps.determine-uind.outputs.result }}"
+        channel="${{ steps.set-channel.outputs.CHANNEL }}"
+        build_time="${{ steps.build-metadata.outputs.BUILD_TIME }}"
+        commit_hash="${{ steps.build-metadata.outputs.COMMIT_HASH }}"
+        deploy_url="${{ steps.set-deploy-url.outputs.DEPLOY_URL }}"
+        gh_upmeta_repo="${{ steps.set-deploy-url.outputs.GH_UPMETA_REPO }}"
+
+        platforms=(
+          "windows/amd64"
+          "windows/arm64"
+          "linux/amd64"
+          "linux/arm64"
+          "darwin/amd64"
+          "darwin/arm64"
+        )
+
+        release_notes="${{ steps.set-notes.outputs.NOTES }}\n\n<details>\n<summary>[UpMeta]</summary>\n\n\`\`\`yaml\n__upmeta__: \"3495a9db\"\nformat: 1\nuind: $uind\nsemver: $semver\nchannel: $channel\nsources:\n"
+
+        for platform in "${platforms[@]}"; do
+          goos="${platform%%/*}"
+          goarch="${platform##*/}"
+          filename="go-update-test-${semver}-${goos}-${goarch}"
+          [[ "$goos" == "windows" ]] && filename+=".exe"
+
+          echo "Building $filename..."
+          env GOOS=$goos GOARCH=$goarch go build -ldflags="-s -w \
+            -X 'main.AppVersion=$semver' \
+            -X 'main.AppUIND=$uind' \
+            -X 'main.AppChannel=$channel' \
+            -X 'main.AppBuildTime=$build_time' \
+            -X 'main.AppCommitHash=$commit_hash' \
+            -X 'main.AppDeployURL=$deploy_url' \
+            -X 'main.AppGithubRepo=$gh_upmeta_repo'" \
+            -o ci_builds/$filename .
+
+          echo "Calculating checksum..."
+          checksum=$(sha256sum ci_builds/$filename | cut -d' ' -f1)
+
+          echo "Signing file..."
+          openssl dgst -sha256 -sign signing/private.pem -out "ci_builds/$filename.sig" "ci_builds/$filename"
+          signature=$(base64 -w 0 < "ci_builds/$filename.sig")
+          rm "ci_builds/$filename.sig"
+
+          release_notes+="    $goos-$goarch:\n"
+          release_notes+="      filename: $filename\n"
+          release_notes+="      checksum: $checksum\n"
+          release_notes+="      signature: $signature\n"
+          release_notes+="      is_patch: false\n"
+          release_notes+="      patch_for: null\n"
+          release_notes+="      patch_checksum: null\n"
+          release_notes+="      patch_signature: null\n"
+          release_notes+="      patch_asset: null\n"
+        done
+
+        release_notes+="\`\`\`\n</details>\n"
+
+        echo -e "${release_notes//\\n/$'\n'}" > release_notes.md
+
+    - name: Create GitHub Release with metadata and assets
+      run: |
+        gh release create "${GITHUB_REF##*/}" \
+          --title "Release ${{ steps.parse-semver.outputs.SEMVER }}" \
+          --notes-file release_notes.md \
+          --repo "${GITHUB_REPOSITORY}" \
+          --prerelease=true \
+          ci_builds/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

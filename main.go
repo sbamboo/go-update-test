@@ -149,10 +149,13 @@ func (ghup *GithubUpdateFetcher) FetchAssetReleases() ([]map[string]interface{},
 	var results []map[string]interface{}
 
 	for _, rel := range releases {
-		upmeta, err := ghup.parseAssetReleaseForMeta(rel.TagName)
-		if err != nil {
-			fmt.Printf("ERROR parsing tag %s: %v\n", rel.TagName, err)
-			continue
+		var upmeta *UpMeta
+		if strings.HasPrefix(rel.TagName, "ci-") {
+			upmeta, err = ghup.parseAssetReleaseForMeta(rel.TagName)
+			if err != nil {
+				fmt.Printf("ERROR parsing tag %s: %v\n", rel.TagName, err)
+				continue
+			}
 		}
 
 		notes := strings.TrimSpace(strings.SplitN(rel.Body, "<details>", 2)[0])
@@ -290,9 +293,6 @@ func (ghup *GithubUpdateFetcher) FetchAssetReleases() ([]map[string]interface{},
 }
 
 func (ghup *GithubUpdateFetcher) parseAssetReleaseForMeta(tagName string) (*UpMeta, error) {
-	if !strings.HasPrefix(tagName, "ci-") {
-		return nil, fmt.Errorf("tag name '%s' does not start with 'ci-'", tagName)
-	}
 
 	strippedTag := tagName[len("ci-"):] // Remove "ci-" prefix
 

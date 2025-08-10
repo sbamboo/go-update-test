@@ -410,8 +410,6 @@ if (-not $deployURL) {
     $deployURL = Read-Host "Enter the URL for the deploy.json (e.g., https://example.com/deploy.json)"
 }
 
-write-host $ghUpMetaRepo
-
 # if ghUpMetaRepo is not set and ghUpMetaRepo is not emptystring and channel begins with "ugit."
 if (-not $ghUpMetaRepo -and $ghUpMetaRepo -ne "" -and $channel -like "ugit.*") {
     $ghUpMetaRepo = Read-Host "Enter the github repository where github release channels are posted. (e.g., sbamboo/go-update-test)"
