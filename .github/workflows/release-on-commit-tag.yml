@@ -132,7 +132,7 @@ jobs:
             -X 'main.AppBuildTime=$build_time' \
             -X 'main.AppCommitHash=$commit_hash' \
             -X 'main.AppDeployURL=$deploy_url' \
-            -X 'main.AppGhUpMetaRepo=$gh_upmeta_repo'" \
+            -X 'main.AppGithubRepo=$gh_upmeta_repo'" \
             -o ci_builds/$filename .
 
           echo "Calculating checksum..."

@@ -25,13 +25,13 @@ import (
 
 // App metadata injected at compile time (these will be passed to NetUpdater)
 var (
-	AppVersion      = "0.0.0"
-	AppUIND         = "0"
-	AppChannel      = "default"
-	AppBuildTime    = "unknown"
-	AppCommitHash   = "unknown"
-	AppDeployURL    string
-	AppGhUpMetaRepo = "" // If not provided this will be cast to *string nil later
+	AppVersion    = "0.0.0"
+	AppUIND       = "0"
+	AppChannel    = "default"
+	AppBuildTime  = "unknown"
+	AppCommitHash = "unknown"
+	AppDeployURL  string
+	AppGithubRepo = "" // If not provided this will be cast to *string nil later
 )
 
 //go:embed signing/public.pem
@@ -39,18 +39,19 @@ var appPublicKey []byte
 
 // --- GitHub UpMeta Fetcher Structures and Methods ---
 
-// GhUpMetaAsset represents a release asset from the GitHub API relevant for UpMeta.
-type GhUpMetaAsset struct {
+// GithubAsset represents a release asset from the GitHub API relevant for UpMeta.
+type GithubAsset struct {
 	Name               string `json:"name"`
 	BrowserDownloadURL string `json:"browser_download_url"`
+	Digest             string `json:"digest"`
 }
 
-// GhUpMetaRelease represents a GitHub release with fields relevant for UpMeta processing.
-type GhUpMetaRelease struct {
-	TagName  string          `json:"tag_name"`
-	Body     string          `json:"body"`
-	Assets   []GhUpMetaAsset `json:"assets"`
-	Released string          `json:"published_at"`
+// GithubReleaseAssets represents a GitHub release with fields relevant for UpMeta processing.
+type GithubReleaseAssets struct {
+	TagName  string        `json:"tag_name"`
+	Body     string        `json:"body"`
+	Assets   []GithubAsset `json:"assets"`
+	Released string        `json:"published_at"`
 }
 
 // UpMeta represents the __upmeta__ YAML structure found in release bodies.
@@ -64,7 +65,7 @@ type UpMeta struct {
 	Sources map[string]struct {
 		URL            string  `yaml:"url,omitempty" json:"url"`
 		Checksum       string  `yaml:"checksum" json:"checksum"`
-		Signature      string  `yaml:"signature" json:"signature"`
+		Signature      *string `yaml:"signature" json:"signature"`
 		IsPatch        bool    `yaml:"is_patch" json:"is_patch"`
 		PatchFor       *int    `yaml:"patch_for" json:"patch_for"`
 		PatchChecksum  *string `yaml:"patch_checksum" json:"patch_checksum"`
@@ -75,16 +76,15 @@ type UpMeta struct {
 	} `yaml:"sources" json:"sources"`
 }
 
-// GhUpMetaFetcher encapsulates the logic for fetching and processing
-// GitHub releases to extract update metadata (`UpMeta`).
-type GhUpMetaFetcher struct {
+// GithubUpdateFetcher encapsulates the logic for fetching and processing Github Releases
+type GithubUpdateFetcher struct {
 	Owner string
 	Repo  string
 }
 
-// NewGhUpMetaFetcher creates a new instance of GhUpMetaFetcher.
-func NewGhUpMetaFetcher(owner, repo string) *GhUpMetaFetcher {
-	return &GhUpMetaFetcher{
+// NewGithubUpdateFetcher creates a new instance of GithubUpdateFetcher.
+func NewGithubUpdateFetcher(owner, repo string) *GithubUpdateFetcher {
+	return &GithubUpdateFetcher{
 		Owner: owner,
 		Repo:  repo,
 	}
@@ -92,8 +92,8 @@ func NewGhUpMetaFetcher(owner, repo string) *GhUpMetaFetcher {
 
 // FetchUpMetaReleases fetches releases from GitHub, parses their bodies
 // for UpMeta, and attaches asset URLs, returning processed release data.
-func (gum *GhUpMetaFetcher) FetchUpMetaReleases() ([]map[string]interface{}, error) {
-	releases, err := gum.fetchReleases()
+func (ghup *GithubUpdateFetcher) FetchUpMetaReleases() ([]map[string]interface{}, error) {
+	releases, err := ghup.fetchReleases()
 	if err != nil {
 		return nil, fmt.Errorf("error fetching releases: %w", err)
 	}
@@ -101,7 +101,7 @@ func (gum *GhUpMetaFetcher) FetchUpMetaReleases() ([]map[string]interface{}, err
 	var results []map[string]interface{}
 
 	for _, rel := range releases {
-		notes, upmeta, err := gum.parseReleaseBody(rel.Body)
+		notes, upmeta, err := ghup.parseReleaseBodyForUpMeta(rel.Body)
 		if err != nil {
 			fmt.Printf("ERROR parsing release body for tag %s: %v\n", rel.TagName, err)
 			continue
@@ -116,12 +116,12 @@ func (gum *GhUpMetaFetcher) FetchUpMetaReleases() ([]map[string]interface{}, err
 		if upmeta != nil {
 			// Attach URLs from GitHub assets
 			for key, source := range upmeta.Sources {
-				if url := gum.findAssetURL(rel.Assets, source.Filename); url != nil {
+				if url := ghup.findAssetURL(rel.Assets, source.Filename); url != nil {
 					source.URL = *url
 				}
 
 				if source.PatchAsset != nil {
-					if patchURL := gum.findAssetURL(rel.Assets, *source.PatchAsset); patchURL != nil {
+					if patchURL := ghup.findAssetURL(rel.Assets, *source.PatchAsset); patchURL != nil {
 						source.PatchURL = patchURL
 					}
 				} else {
@@ -139,10 +139,195 @@ func (gum *GhUpMetaFetcher) FetchUpMetaReleases() ([]map[string]interface{}, err
 	return results, nil
 }
 
-// fetchReleases fetches raw GhUpMetaRelease data from the GitHub API for the
+// FetchAssetReleases fetches releases from GitHub, parses their tags and assets for metadata.
+func (ghup *GithubUpdateFetcher) FetchAssetReleases() ([]map[string]interface{}, error) {
+	releases, err := ghup.fetchReleases()
+	if err != nil {
+		return nil, fmt.Errorf("error fetching releases: %w", err)
+	}
+
+	var results []map[string]interface{}
+
+	for _, rel := range releases {
+		upmeta, err := ghup.parseAssetReleaseForMeta(rel.TagName)
+		if err != nil {
+			fmt.Printf("ERROR parsing tag %s: %v\n", rel.TagName, err)
+			continue
+		}
+
+		notes := strings.TrimSpace(strings.SplitN(rel.Body, "<details>", 2)[0])
+
+		obj := map[string]interface{}{
+			"tag":      rel.TagName,
+			"notes":    notes,
+			"released": rel.Released,
+		}
+
+		if upmeta != nil {
+			upmeta.Sources = make(map[string]struct {
+				URL            string  `yaml:"url,omitempty" json:"url"`
+				Checksum       string  `yaml:"checksum" json:"checksum"`
+				Signature      *string `yaml:"signature" json:"signature"`
+				IsPatch        bool    `yaml:"is_patch" json:"is_patch"`
+				PatchFor       *int    `yaml:"patch_for" json:"patch_for"`
+				PatchChecksum  *string `yaml:"patch_checksum" json:"patch_checksum"`
+				PatchSignature *string `yaml:"patch_signature" json:"patch_signature"`
+				PatchURL       *string `yaml:"patch_url,omitempty" json:"patch_url"`
+				Filename       string  `yaml:"filename,omitempty" json:"filename"`
+				PatchAsset     *string `yaml:"patch_asset,omitempty" json:"patch_asset"`
+			})
+
+			assetMap := make(map[string]GithubAsset)
+			for _, asset := range rel.Assets {
+				assetMap[asset.Name] = asset
+			}
+
+			// Process main executable assets
+			for _, asset := range rel.Assets {
+				// Skip signature and patch files when iterating for main assets
+				if strings.HasSuffix(asset.Name, ".sig") || strings.Contains(asset.Name, ".patch") {
+					continue
+				}
+
+				// Derive the source key (platform-arch)
+				sourceKey := extractPlatformArch(asset.Name)
+				if sourceKey == "" {
+					fmt.Printf("WARNING: Could not determine platform-arch for asset '%s'. Skipping.\n", asset.Name)
+					continue
+				}
+
+				source := struct {
+					URL            string  `yaml:"url,omitempty" json:"url"`
+					Checksum       string  `yaml:"checksum" json:"checksum"`
+					Signature      *string `yaml:"signature" json:"signature"`
+					IsPatch        bool    `yaml:"is_patch" json:"is_patch"`
+					PatchFor       *int    `yaml:"patch_for" json:"patch_for"`
+					PatchChecksum  *string `yaml:"patch_checksum" json:"patch_checksum"`
+					PatchSignature *string `yaml:"patch_signature" json:"patch_signature"`
+					PatchURL       *string `yaml:"patch_url,omitempty" json:"patch_url"`
+					Filename       string  `yaml:"filename,omitempty" json:"filename"`
+					PatchAsset     *string `yaml:"patch_asset,omitempty" json:"patch_asset"`
+				}{
+					URL:      asset.BrowserDownloadURL,
+					Filename: asset.Name,
+					// Initialize patch fields to null/default
+					IsPatch:        false,
+					PatchFor:       nil,
+					PatchChecksum:  nil,
+					PatchSignature: nil,
+					PatchURL:       nil,
+				}
+
+				// Extract checksum from digest
+				if digestParts := strings.SplitN(asset.Digest, ":", 2); len(digestParts) == 2 && digestParts[0] == "sha256" {
+					source.Checksum = digestParts[1]
+				} else {
+					fmt.Printf("WARNING: Unexpected digest format for asset %s: %s\n", asset.Name, asset.Digest)
+					source.Checksum = ""
+				}
+
+				// Fetch signature content
+				sigAssetName := asset.Name + ".sig"
+				if sigAsset, ok := assetMap[sigAssetName]; ok {
+					sigContent, err := ghup.fetchFileContent(sigAsset.BrowserDownloadURL)
+					if err != nil {
+						fmt.Printf("ERROR fetching signature for %s: %v\n", asset.Name, err)
+						// Decide whether to skip or set signature to nil on error
+						source.Signature = nil
+					} else {
+						source.Signature = &sigContent
+					}
+				}
+
+				// Check for associated patch file
+				filenameNoExt := strings.TrimSuffix(asset.Name, getFileExtension(asset.Name))
+				patchRegex := regexp.MustCompile(
+					`^` + regexp.QuoteMeta(filenameNoExt) + `_(\d+)t(\d+)\.patch$`,
+				)
+
+				for _, patchAssetCandidate := range rel.Assets {
+					if strings.HasSuffix(patchAssetCandidate.Name, ".patch") {
+						matches := patchRegex.FindStringSubmatch(patchAssetCandidate.Name)
+						if len(matches) == 3 {
+							source.IsPatch = true
+							source.PatchURL = &patchAssetCandidate.BrowserDownloadURL
+
+							if digestParts := strings.SplitN(
+								patchAssetCandidate.Digest,
+								":",
+								2,
+							); len(digestParts) == 2 && digestParts[0] == "sha256" {
+								patchChecksum := digestParts[1]
+								source.PatchChecksum = &patchChecksum
+							}
+
+							// Fetch patch signature content
+							patchSigAssetName := patchAssetCandidate.Name + ".sig"
+							if patchSigAsset, ok := assetMap[patchSigAssetName]; ok {
+								patchSigContent, err := ghup.fetchFileContent(patchSigAsset.BrowserDownloadURL)
+								if err != nil {
+									fmt.Printf("ERROR fetching patch signature for %s: %v\n", patchAssetCandidate.Name, err)
+									source.PatchSignature = nil
+								} else {
+									source.PatchSignature = &patchSigContent
+								}
+							}
+
+							if patchForUind, err := strconv.Atoi(matches[1]); err == nil {
+								source.PatchFor = &patchForUind
+							}
+							break
+						}
+					}
+				}
+				upmeta.Sources[sourceKey] = source
+			}
+			obj["upmeta"] = upmeta
+		}
+		results = append(results, obj)
+	}
+	return results, nil
+}
+
+func (ghup *GithubUpdateFetcher) parseAssetReleaseForMeta(tagName string) (*UpMeta, error) {
+	if !strings.HasPrefix(tagName, "ci-") {
+		return nil, fmt.Errorf("tag name '%s' does not start with 'ci-'", tagName)
+	}
+
+	strippedTag := tagName[len("ci-"):] // Remove "ci-" prefix
+
+	// Split from the right to easily get semver and uind
+	// Example: "git.commit-5-0.0.0" -> ["git.commit-5", "0.0.0"]
+	parts := strings.Split(strippedTag, "-")
+
+	if len(parts) < 3 {
+		return nil, fmt.Errorf("invalid tag format for '%s': expected at least 3 parts after 'ci-' (channel-uind-semver)", tagName)
+	}
+
+	semver := parts[len(parts)-1]
+	uindStr := parts[len(parts)-2]
+
+	channelParts := parts[:len(parts)-2] // All parts before uind and semver
+	channel := strings.Join(channelParts, "-")
+
+	uind, err := strconv.Atoi(uindStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid uind '%s' in tag '%s': %w", uindStr, tagName, err)
+	}
+
+	return &UpMeta{
+		UpMetaVer: "unknown", // Statically set as per requirement
+		Format:    1,         // Example format version
+		Uind:      uind,
+		Semver:    semver,
+		Channel:   channel,
+	}, nil
+}
+
+// fetchReleases fetches raw GithubReleaseAssets data from the GitHub API for the
 // configured owner and repository.
-func (gum *GhUpMetaFetcher) fetchReleases() ([]GhUpMetaRelease, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", gum.Owner, gum.Repo)
+func (ghup *GithubUpdateFetcher) fetchReleases() ([]GithubReleaseAssets, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", ghup.Owner, ghup.Repo)
 	fmt.Println("Fetching releases from:", url)
 
 	resp, err := http.Get(url)
@@ -161,7 +346,7 @@ func (gum *GhUpMetaFetcher) fetchReleases() ([]GhUpMetaRelease, error) {
 		return nil, fmt.Errorf("reading response body failed: %w", err)
 	}
 
-	var releases []GhUpMetaRelease
+	var releases []GithubReleaseAssets
 	err = json.Unmarshal(bodyBytes, &releases)
 	if err != nil {
 		return nil, fmt.Errorf("json.Unmarshal failed: %w", err)
@@ -169,9 +354,30 @@ func (gum *GhUpMetaFetcher) fetchReleases() ([]GhUpMetaRelease, error) {
 	return releases, nil
 }
 
-// parseReleaseBody extracts release notes and an optional UpMeta struct
+// fetchFileContent fetches the content of a file from a given URL.
+func (ghup *GithubUpdateFetcher) fetchFileContent(url string) (string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch content from %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("HTTP status %d fetching %s: %s", resp.StatusCode, url, string(bodyBytes))
+	}
+
+	contentBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read content from %s: %w", url, err)
+	}
+
+	return string(contentBytes), nil
+}
+
+// parseReleaseBodyForUpMeta extracts release notes and an optional UpMeta struct
 // from a GitHub release body string.
-func (gum *GhUpMetaFetcher) parseReleaseBody(body string) (string, *UpMeta, error) {
+func (ghup *GithubUpdateFetcher) parseReleaseBodyForUpMeta(body string) (string, *UpMeta, error) {
 	// Extract the notes: everything before the first <details> tag
 	notes := strings.TrimSpace(strings.SplitN(body, "<details>", 2)[0])
 
@@ -200,14 +406,76 @@ func (gum *GhUpMetaFetcher) parseReleaseBody(body string) (string, *UpMeta, erro
 }
 
 // findAssetURL finds the browser download URL for an asset by its name
-// within a list of GhUpMetaAsset.
-func (gum *GhUpMetaFetcher) findAssetURL(assets []GhUpMetaAsset, name string) *string {
+// within a list of GithubAsset.
+func (ghup *GithubUpdateFetcher) findAssetURL(assets []GithubAsset, name string) *string {
 	for _, asset := range assets {
 		if asset.Name == name {
 			return &asset.BrowserDownloadURL
 		}
 	}
 	return nil
+}
+
+// getFileExtension extracts the file extension from a filename.
+func getFileExtension(filename string) string {
+	dotIndex := strings.LastIndex(filename, ".")
+	if dotIndex == -1 || dotIndex == len(filename)-1 {
+		return ""
+	}
+	return filename[dotIndex:]
+}
+
+// reverseString reverses a string.
+func reverseString(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
+}
+
+// extractPlatformArch parses a filename to extract the "<platform>-<arch>" part.
+func extractPlatformArch(filename string) string {
+	filenameNoExt := strings.TrimSuffix(filename, getFileExtension(filename))
+
+	reversedFilename := reverseString(filenameNoExt)
+
+	// We are looking for the pattern "arch-platform" in the reversed string.
+	// We need to find the first '-' or '_' after the architecture.
+	// Then the next '-' or '_' after the platform.
+
+	var parts []string
+	currentPart := ""
+	delimiterCount := 0
+
+	for _, r := range reversedFilename {
+		if r == '-' || r == '_' {
+			if currentPart != "" {
+				parts = append(parts, currentPart)
+				currentPart = ""
+				delimiterCount++
+				if delimiterCount == 2 {
+					break // Found two delimiters, so we have the arch and platform parts
+				}
+			}
+		} else {
+			currentPart += string(r)
+		}
+	}
+	if currentPart != "" { // Add the last part if string ends without a delimiter
+		parts = append(parts, currentPart)
+	}
+
+	// We need at least two parts for "arch" and "platform"
+	if len(parts) >= 2 {
+		arch := reverseString(parts[0])     // First part found in reversed string is the architecture
+		platform := reverseString(parts[1]) // Second part found is the platform
+
+		// Reconstruct as "platform-arch"
+		return fmt.Sprintf("%s-%s", platform, arch)
+	}
+
+	return "" // Could not parse platform-arch
 }
 
 // --- Main NetUpdater structures and methods ---
@@ -250,7 +518,7 @@ type NetUpdater struct {
 	DeployURL        string
 	GithubUpMetaRepo *string // New field for GitHub repo (e.g., "owner/repo")
 	Target           string
-	ghMetaFetcher    *GhUpMetaFetcher // Internal instance for GitHub fetching
+	ghMetaFetcher    *GithubUpdateFetcher // Internal instance for GitHub fetching
 }
 
 // NewNetUpdater creates and initializes a new NetUpdater instance.
@@ -275,7 +543,7 @@ func NewNetUpdater(semver, uindStr, channel, released, commit, deployURL string,
 	if githubUpMetaRepo != nil && strings.Contains(*githubUpMetaRepo, "/") {
 		parts := strings.SplitN(*githubUpMetaRepo, "/", 2)
 		if len(parts) == 2 {
-			nu.ghMetaFetcher = NewGhUpMetaFetcher(parts[0], parts[1])
+			nu.ghMetaFetcher = NewGithubUpdateFetcher(parts[0], parts[1])
 		}
 	}
 
@@ -289,7 +557,12 @@ func (nu *NetUpdater) GetLatestVersion() (*NetUpReleaseInfo, error) {
 		if nu.ghMetaFetcher == nil {
 			return nil, fmt.Errorf("github update meta repo not configured for 'ugit.' channel")
 		}
-		return nu.getLatestVersionFromGitHub()
+		return nu.getLatestVersionFromGitHub(true)
+	} else if strings.HasPrefix(nu.Channel, "git.") {
+		if nu.ghMetaFetcher == nil {
+			return nil, fmt.Errorf("github update meta repo not configured for 'git.' channel")
+		}
+		return nu.getLatestVersionFromGitHub(false)
 	} else {
 		return nu.getLatestVersionFromJsonDeploy()
 	}
@@ -343,8 +616,16 @@ func (nu *NetUpdater) getLatestVersionFromJsonDeploy() (*NetUpReleaseInfo, error
 }
 
 // getLatestVersionFromGitHub fetches update metadata from GitHub releases.
-func (nu *NetUpdater) getLatestVersionFromGitHub() (*NetUpReleaseInfo, error) {
-	ghReleases, err := nu.ghMetaFetcher.FetchUpMetaReleases()
+func (nu *NetUpdater) getLatestVersionFromGitHub(upMeta bool) (*NetUpReleaseInfo, error) {
+	var ghReleases []map[string]interface{}
+	var err error
+
+	if upMeta {
+		ghReleases, err = nu.ghMetaFetcher.FetchUpMetaReleases()
+	} else {
+		ghReleases, err = nu.ghMetaFetcher.FetchAssetReleases()
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch GitHub releases: %w", err)
 	}
@@ -394,7 +675,7 @@ func (nu *NetUpdater) getLatestVersionFromGitHub() (*NetUpReleaseInfo, error) {
 			PatchURL:       source.PatchURL,
 			PatchFor:       source.PatchFor,
 			Checksum:       source.Checksum,
-			Signature:      source.Signature,
+			Signature:      *source.Signature,
 			PatchChecksum:  source.PatchChecksum,
 			PatchSignature: source.PatchSignature,
 		}
@@ -518,11 +799,11 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 // --- Main application logic ---
 
 func main() {
-	var _appGhUpMetaRepo *string
-	if AppGhUpMetaRepo != "" {
-		_appGhUpMetaRepo = &AppGhUpMetaRepo
+	var _AppGithubRepo *string
+	if AppGithubRepo != "" {
+		_AppGithubRepo = &AppGithubRepo
 	} else {
-		_appGhUpMetaRepo = nil
+		_AppGithubRepo = nil
 	}
 	// Initialize the NetUpdater with app details and the deployment URL
 	// Pass AppGithubUpMetaRepo as the new parameter
@@ -533,7 +814,7 @@ func main() {
 		AppBuildTime,
 		AppCommitHash,
 		AppDeployURL,
-		_appGhUpMetaRepo,
+		_AppGithubRepo,
 		appPublicKey,
 		fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH),
 	)

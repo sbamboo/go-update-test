@@ -451,7 +451,7 @@ $ldFlags = "-X 'main.AppVersion=$semver' -X 'main.AppUIND=$uind' -X 'main.AppCha
 
 # if $ghUpMetaRepo is set and not "", add it to ldflags
 if ($ghUpMetaRepo -and $ghUpMetaRepo -ne "") {
-    $ldFlags += " -X 'main.AppGhUpMetaRepo=$ghUpMetaRepo'"
+    $ldFlags += " -X 'main.AppGithubRepo=$ghUpMetaRepo'"
 }
 
 if ($doDebugLdflags) {
