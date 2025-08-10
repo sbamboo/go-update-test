@@ -25,7 +25,7 @@ jobs:
         echo "SEMVER=$semver" >> $GITHUB_OUTPUT
 
     - name: Set CHANNEL
-      run: echo "CHANNEL=git.commit" >> $GITHUB_OUTPUT
+      run: echo "CHANNEL=ugit.commit" >> $GITHUB_OUTPUT
       id: set-channel
 
     - name: Determine next UIND from existing releases

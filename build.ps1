@@ -44,7 +44,7 @@ Options:
   -noCrossCompile                Tells golang not to use cross-compilation by not adding GOOS and GOARCH env vars
   -addDeploy "<filepath>"        Add this entry to the following deploy.json under its channel
   -deployURL "<string>"          URL for the deploy.json, where most channels fetch updates from
-  -ghUpMetaRepo "<owner>/<repo>" GitHub repository for "git." channels to fetch github releases from
+  -ghUpMetaRepo "<owner>/<repo>" GitHub repository for "ugit."/"git." channels to fetch github releases from
   -debugLdflags                  Prints debug ldflags for the Go build
   -help                          Show this help message
 
@@ -412,8 +412,8 @@ if (-not $deployURL) {
 
 write-host $ghUpMetaRepo
 
-# if ghUpMetaRepo is not set and ghUpMetaRepo is not emptystring and channel begins with "git."
-if (-not $ghUpMetaRepo -and $ghUpMetaRepo -ne "" -and $channel -like "git.*") {
+# if ghUpMetaRepo is not set and ghUpMetaRepo is not emptystring and channel begins with "ugit."
+if (-not $ghUpMetaRepo -and $ghUpMetaRepo -ne "" -and $channel -like "ugit.*") {
     $ghUpMetaRepo = Read-Host "Enter the github repository where github release channels are posted. (e.g., sbamboo/go-update-test)"
 }
 

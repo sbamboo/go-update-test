@@ -149,7 +149,7 @@ func (gumf *GhUpMetaFetcher) parseReleaseBody(body string) (string, *UpMeta, err
 	notes := strings.TrimSpace(strings.SplitN(body, "<details>", 2)[0])
 
 	// Match all ```yaml ... blocks
-	codeBlockRe := regexp.MustCompile("(?s)```yaml\\s*\n(.*)")
+	codeBlockRe := regexp.MustCompile("(?s)```yaml\\s*\n(.*?)```")
 	matches := codeBlockRe.FindAllStringSubmatch(body, -1)
 
 	if matches == nil || len(matches) == 0 {

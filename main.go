@@ -285,9 +285,9 @@ func NewNetUpdater(semver, uindStr, channel, released, commit, deployURL string,
 // GetLatestVersion fetches the deploy file or GitHub releases and determines the latest compatible release
 // for the updater's current channel and platform.
 func (nu *NetUpdater) GetLatestVersion() (*NetUpReleaseInfo, error) {
-	if strings.HasPrefix(nu.Channel, "git.") {
+	if strings.HasPrefix(nu.Channel, "ugit.") {
 		if nu.ghMetaFetcher == nil {
-			return nil, fmt.Errorf("github update meta repo not configured for 'git.' channel")
+			return nil, fmt.Errorf("github update meta repo not configured for 'ugit.' channel")
 		}
 		return nu.getLatestVersionFromGitHub()
 	} else {
