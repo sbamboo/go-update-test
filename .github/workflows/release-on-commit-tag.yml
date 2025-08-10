@@ -21,7 +21,7 @@ jobs:
       id: parse-semver
       run: |
         tag="${GITHUB_REF##refs/tags/}"    # e.g. commit_1.2.3
-        semver="${tag#commit_}"            # strip 'commit_'
+        semver="${tag#ucommit_}"            # strip 'ucommit_'
         echo "SEMVER=$semver" >> $GITHUB_OUTPUT
 
     - name: Set CHANNEL
