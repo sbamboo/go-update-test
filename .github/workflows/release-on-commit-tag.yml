@@ -56,7 +56,9 @@ jobs:
     - name: Construct Release Tag Name (ci-<channel>-<uind>-<semver>)
       id: construct-release-tag
       run: |
-        echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_OUTPUT
+        RELEASE_TAG="ci-${{ steps.set-channel.outputs.CHANNEL }}-${{ steps.determine-uind.outputs.result }}-${{ steps.parse-semver.outputs.SEMVER }}"
+        echo "RELEASE_TAG=ci-${{ steps.set-channel.outputs.CHANNEL }}-${{ steps.determine-uind.outputs.result }}-${{ steps.parse-semver.outputs.SEMVER }}" >> $GITHUB_OUTPUT
+        echo "Constructed Release Tag: $RELEASE_TAG"
 
     - name: Set NOTES
       id: set-notes
@@ -148,7 +150,7 @@ jobs:
 
     - name: Create GitHub Release with metadata and assets
       run: |
-        gh release create "${{ steps.construct-release-tag.outputs.RELEASE_TAG }}" \
+        gh release create "$RELEASE_TAG" \
           --title "Release ${{ steps.parse-semver.outputs.SEMVER }}" \
           --notes-file release_notes.md \
           --repo "${GITHUB_REPOSITORY}" \
