@@ -38,11 +38,23 @@ jobs:
             repo: context.repo.repo,
           });
           let maxUind = 0;
+
           for (const release of releases.data) {
-            if (release.body) {
-              const match = release.body.match(/uind:\s*(\d+)/);
-              if (match) {
-                const uind = parseInt(match[1], 10);
+            // Check if the tag starts with "ci-"
+            if (release.tag_name.startsWith('ci-')) {
+              // Strip "ci-" prefix
+              const strippedTag = release.tag_name.substring(3); // Remove "ci-"
+
+              // Split by "-"
+              const parts = strippedTag.split('-');
+
+              // Ensure enough parts exist: [channel_part(s), uind, semver]
+              // We need at least 2 parts (uind and semver) after stripping the channel parts
+              if (parts.length >= 2) { 
+                // The UIND is the second to last part of the split result
+                const uindStr = parts[parts.length - 2];
+                
+                const uind = parseInt(uindStr, 10);
                 if (!isNaN(uind) && uind > maxUind) {
                   maxUind = uind;
                 }
