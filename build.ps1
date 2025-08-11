@@ -17,6 +17,7 @@ param (
     [string]$deployURL,
     [string]$ghUpMetaRepo,
     [switch]$doDebugLdflags,
+    [string]$appName = "updatetest", # Default app name, can be overridden
     [switch]$help
 )
 
@@ -24,7 +25,6 @@ param (
 $publicKeyFile = "./signing/public.pem"
 $privateKeyFile = "./signing/private.pem"
 $outputPath = "./builds"
-$appName = "updatetest" # Name of your Go executable
 
 # --- Help Text ---
 if ($help) {
@@ -46,6 +46,7 @@ Options:
   -deployURL "<string>"          URL for the deploy.json, where most channels fetch updates from
   -ghUpMetaRepo "<owner>/<repo>" GitHub repository for "ugit."/"git." channels to fetch github releases from
   -debugLdflags                  Prints debug ldflags for the Go build
+  -appName "<string>"            Application name (current: $appName)
   -help                          Show this help message
 
 Notes:
@@ -347,30 +348,33 @@ else {
         $resp = Read-Host "Is this a binary patch? (y/n)"
         $generatePatch = $resp -eq 'y'
     }
-    if ($patchForUind) {
-        $patchForUind = Validate-UIND $patchForUind
-    } else {
-        $patchForUindString = Read-Host "Enter the UIND of the version this patch is FOR (the old version's UIND)"
-        $patchForUind = Validate-UIND $patchForUindString
-    }
-    # if $patchForUind is $null it was invalid while-prompt until valid
-    if (-not $patchForUind) {
-        while ($true) {
-            $inputPatchFor = Read-Host "Enter the UIND of the version this patch is FOR (the old version's UIND)"
-            $patchForUind = Validate-UIND $inputPatchFor
-            if ($patchForUind -ne $null) {
-                break
+
+    if ($generatePatch) {
+        if ($patchForUind) {
+            $patchForUind = Validate-UIND $patchForUind
+        } else {
+            $patchForUindString = Read-Host "Enter the UIND of the version this patch is FOR (the old version's UIND)"
+            $patchForUind = Validate-UIND $patchForUindString
+            # if $patchForUind is $null it was invalid while-prompt until valid
+            if (-not $patchForUind) {
+                while ($true) {
+                    $inputPatchFor = Read-Host "Enter the UIND of the version this patch is FOR (the old version's UIND)"
+                    $patchForUind = Validate-UIND $inputPatchFor
+                    if ($patchForUind -ne $null) {
+                        break
+                    }
+                }
             }
         }
-    }
 
-    if (-not $patchComparePath) {
-        $patchComparePath = Read-Host "Enter path to the previous version's binary for patch generation (e.g., ./builds/your_app_v1.0.0.exe)"
-    }
-    # If the $patchComparePath does not exist while-prompt it until it does
-    while (-not (Test-Path $patchComparePath)) {
-        Write-Host "Previous binary not found at: $patchComparePath. Please enter a valid path." -ForegroundColor Red
-        $patchComparePath = Read-Host "Enter path to the previous version's binary for patch generation (e.g., ./builds/your_app_v1.0.0.exe)"
+        if (-not $patchComparePath) {
+            $patchComparePath = Read-Host "Enter path to the previous version's binary for patch generation (e.g., ./builds/your_app_v1.0.0.exe)"
+        }
+        # If the $patchComparePath does not exist while-prompt it until it does
+        while (-not (Test-Path $patchComparePath)) {
+            Write-Host "Previous binary not found at: $patchComparePath. Please enter a valid path." -ForegroundColor Red
+            $patchComparePath = Read-Host "Enter path to the previous version's binary for patch generation (e.g., ./builds/your_app_v1.0.0.exe)"
+        }
     }
 
     # Prompt targetOS and targetArch if not provided

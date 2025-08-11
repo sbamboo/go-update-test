@@ -363,8 +363,7 @@ func (ghup *GithubUpdateFetcher) fetchFileContent(url string) (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("HTTP status %d fetching %s: %s", resp.StatusCode, url, string(bodyBytes))
+		return "", fmt.Errorf("HTTP status %d fetching %s", resp.StatusCode, url)
 	}
 
 	contentBytes, err := io.ReadAll(resp.Body)
